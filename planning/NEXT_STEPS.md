@@ -338,6 +338,34 @@ The shared package (`goals-club-shared`) defines TypeScript types and Zod valida
 | Organisers | ✅ | ✅ | ⬜ | ⬜ | ⬜ | List/view untested |
 | Orders | ✅ | ✅ | — | — | — | Untested (has status update) |
 
+### AppSync Resolver Architecture — Establish Convention (Audited 2026-04-12)
+
+Currently 67 unit resolvers and 2 pipeline resolvers (`checkAndAwardBadges`, `logGoalActivity`). The pipeline resolvers are cleaner and more extendable — they separate concerns into reusable functions and make multi-step flows explicit.
+
+**Convention going forward:**
+- **Pipeline resolvers** for any operation that involves multi-step logic, side effects, or orchestration (e.g. log activity → update period → check streaks, or create order → process payment → send notification)
+- **Unit resolvers** are acceptable for genuinely simple single-query operations (e.g. `getCategory`, `listReactionTypes`) — wrapping these in a pipeline with one function adds overhead with no benefit
+- **Field-level resolvers** (e.g. `User.goals`, `User.badges`) should remain unit resolvers — they're inherently single-query by design
+
+**Candidates for pipeline conversion** (unit resolvers that currently contain logic that would benefit from being split):
+- ⬜ `awardBadge` — could chain: validate badge exists → check user doesn't already have it → award
+- ⬜ `createGoal` / `createCustomGoal` — could chain: insert goal → auto-join creator → check badge eligibility
+- ⬜ `joinGoal` — could chain: insert participant → update participant count → check badge eligibility
+- ⬜ `logActivity` (legacy) — similar to `logGoalActivity` pipeline pattern
+- ⬜ `updateOrderStatus` — could chain: update status → send notification (when notifications exist)
+- ⬜ `followUser` — could chain: insert follow → send notification (when notifications exist)
+
+**Not worth converting** (simple CRUD, single SQL statement):
+- All `list*`, `get*` queries (pure reads)
+- All `create*`, `update*`, `delete*` admin CRUD (straightforward insert/update/delete)
+- All field-level resolvers (`User.goals`, `User.badges`, etc.)
+- Simple mutations (`unfollowUser`, `removeReaction`, `deleteGoalActivity`)
+
+**Reusable function opportunities** — as pipelines grow, extract shared functions:
+- `checkBadgeEligibility` — reusable across any mutation that might trigger a badge
+- `sendNotification` — reusable across follows, reactions, badge awards, order updates
+- `validateOwnership` — reusable auth check (does this user own this resource?)
+
 ### Explore Page Pagination
 - ⬜ Server-side pagination for public goals (currently client-side filtering)
 - ⬜ "Load More" or infinite scroll
