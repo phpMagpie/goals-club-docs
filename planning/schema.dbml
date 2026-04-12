@@ -1,0 +1,428 @@
+// Goals Club Database Schema
+// Paste this into https://dbdiagram.io to visualize
+// Or use the VSCode extension: "DBML Language Support"
+
+// ============================================
+// LOOKUP TABLES
+// ============================================
+
+Table goal_types {
+  id uuid [pk]
+  name varchar(50) [not null]
+  slug varchar(50) [unique, not null]
+  description varchar(200)
+  icon varchar(50)
+  display_order int [default: 0]
+  created_at timestamp [default: `now()`]
+}
+
+Table categories {
+  id uuid [pk]
+  name varchar(100) [not null]
+  slug varchar(100) [unique, not null]
+  description text
+  icon varchar(50)
+  color varchar(7)
+  display_order int [default: 0]
+  active boolean [default: true]
+  created_at timestamp [default: `now()`]
+}
+
+Table reaction_types {
+  id uuid [pk]
+  name varchar(50) [not null]
+  emoji varchar(10) [not null]
+  active boolean [default: true]
+  display_order int [default: 0]
+  created_at timestamp [default: `now()`]
+}
+
+// ============================================
+// CORE TABLES
+// ============================================
+
+Table users {
+  id uuid [pk, note: 'Cognito sub UUID']
+  cognito_id varchar(128) [unique]
+  email varchar(255) [unique]
+  username varchar(50) [unique, not null]
+  display_name varchar(100)
+  bio text
+  avatar_url varchar(500)
+  location_lat decimal(10,8)
+  location_lng decimal(11,8)
+  location_name varchar(200)
+  show_location boolean [default: false]
+  allow_followers boolean [default: false]
+  follower_visibility follower_visibility_enum [default: 'friends']
+  default_visibility visibility_enum [default: 'private']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table goals {
+  id uuid [pk]
+  creator_id uuid [ref: > users.id, not null]
+  title varchar(200) [not null]
+  description text
+  category_id uuid [ref: > categories.id]
+  goal_type_id uuid [ref: > goal_types.id, not null]
+  target_value decimal(10,2)
+  target_unit varchar(50)
+  target_frequency frequency_enum
+  target_date date
+  visibility visibility_enum [default: 'public']
+  allow_joins boolean [default: true]
+  total_items int [default: 0]
+  image_url varchar(500)
+  status goal_status_enum [default: 'active']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  Note: 'Template goals - public/joinable goals that users can participate in'
+}
+
+Table goal_items {
+  id uuid [pk]
+  goal_id uuid [ref: > goals.id, not null]
+  name varchar(200) [not null]
+  description text
+  location_lat decimal(10,8)
+  location_lng decimal(11,8)
+  location_name varchar(200)
+  external_id varchar(100)
+  metadata json
+  image_url varchar(500)
+  display_order int [default: 0]
+  created_at timestamp [default: `now()`]
+
+  Note: 'Items within a collection goal (Wainwright peaks, NT sites)'
+}
+
+Table user_goals {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  goal_id uuid [ref: > goals.id, note: 'NULL for custom goals']
+  custom_title varchar(200)
+  custom_description text
+  custom_category_id uuid [ref: > categories.id]
+  custom_goal_type_id uuid [ref: > goal_types.id]
+  custom_target_value decimal(10,2)
+  custom_target_unit varchar(50)
+  custom_target_frequency frequency_enum
+  custom_target_date date
+  visibility visibility_enum [default: 'private']
+  status user_goal_status_enum [default: 'active']
+  current_progress decimal(10,2) [default: 0]
+  items_completed int [default: 0]
+  joined_at timestamp [default: `now()`]
+  completed_at timestamp
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, goal_id) [unique]
+  }
+
+  Note: 'User participation - joined goals (goal_id set) or custom goals (goal_id NULL)'
+}
+
+Table user_goal_activities {
+  id uuid [pk]
+  user_goal_id uuid [ref: > user_goals.id, not null]
+  activity_type activity_type_enum [not null]
+  goal_item_id uuid [ref: > goal_items.id]
+  value decimal(10,2)
+  unit varchar(50)
+  activity_date date [not null]
+  is_completion boolean [default: false]
+  notes text
+  location_lat decimal(10,8)
+  location_lng decimal(11,8)
+  location_name varchar(200)
+  photos json
+  created_at timestamp [default: `now()`]
+
+  Note: 'Activity logs - item completions, progress logs, visits'
+}
+
+// ============================================
+// SOCIAL TABLES
+// ============================================
+
+Table user_follows {
+  id uuid [pk]
+  follower_id uuid [ref: > users.id, not null]
+  following_id uuid [ref: > users.id, not null]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (follower_id, following_id) [unique]
+  }
+}
+
+Table goal_follows {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  goal_id uuid [ref: > goals.id, not null]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, goal_id) [unique]
+  }
+
+  Note: 'Following a goal without joining (spectator mode)'
+}
+
+Table reactions {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  activity_id uuid [ref: > user_goal_activities.id, not null]
+  reaction_type_id uuid [ref: > reaction_types.id, not null]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, activity_id, reaction_type_id) [unique]
+  }
+}
+
+// ============================================
+// BADGES & ACHIEVEMENTS
+// ============================================
+
+Table badges {
+  id uuid [pk]
+  name varchar(100) [not null]
+  description text
+  image_url varchar(500)
+  badge_type badge_type_enum [not null]
+  category_id uuid [ref: > categories.id]
+  goal_id uuid [ref: > goals.id]
+  criteria json
+  is_limited_edition boolean [default: false]
+  active boolean [default: true]
+  created_at timestamp [default: `now()`]
+}
+
+Table user_badges {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  badge_id uuid [ref: > badges.id, not null]
+  user_goal_id uuid [ref: > user_goals.id]
+  earned_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, badge_id) [unique]
+  }
+}
+
+// ============================================
+// EVENTS & ORGANISERS
+// ============================================
+
+Table organisers {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  organisation_name varchar(200)
+  description text
+  website_url varchar(500)
+  logo_url varchar(500)
+  status organiser_status_enum [default: 'pending']
+  can_self_publish boolean [default: false]
+  approved_at timestamp
+  approved_by uuid
+  rejection_reason text
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table events {
+  id uuid [pk]
+  organiser_id uuid [ref: > organisers.id, not null]
+  name varchar(200) [not null]
+  description text
+  category_id uuid [ref: > categories.id]
+  event_date date
+  event_end_date date
+  location_lat decimal(10,8)
+  location_lng decimal(11,8)
+  location_name varchar(200)
+  external_url varchar(500)
+  image_url varchar(500)
+  status event_status_enum [default: 'pending']
+  rejection_reason text
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+// ============================================
+// E-COMMERCE
+// ============================================
+
+Table products {
+  id uuid [pk]
+  name varchar(200) [not null]
+  description text
+  price_pence int [not null]
+  image_url varchar(500)
+  badge_id uuid [ref: > badges.id]
+  product_type product_type_enum [default: 'badge']
+  stock_quantity int [default: 0]
+  stock_status stock_status_enum [default: 'in_stock']
+  is_limited_edition boolean [default: false]
+  active boolean [default: true]
+  stripe_product_id varchar(100)
+  stripe_price_id varchar(100)
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table orders {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  order_number varchar(20) [unique, not null]
+  status order_status_enum [default: 'pending']
+  subtotal_pence int [not null]
+  shipping_pence int [default: 0]
+  total_pence int [not null]
+  currency varchar(3) [default: 'GBP']
+  stripe_payment_intent_id varchar(200)
+  stripe_checkout_session_id varchar(200)
+  shipping_name varchar(200)
+  shipping_address_line1 varchar(200)
+  shipping_address_line2 varchar(200)
+  shipping_city varchar(100)
+  shipping_postcode varchar(20)
+  shipping_country varchar(2) [default: 'GB']
+  tracking_number varchar(100)
+  tracking_url varchar(500)
+  notes text
+  shipped_at timestamp
+  delivered_at timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table order_items {
+  id uuid [pk]
+  order_id uuid [ref: > orders.id, not null]
+  product_id uuid [ref: > products.id, not null]
+  quantity int [not null, default: 1]
+  price_pence int [not null]
+}
+
+// ============================================
+// SYSTEM TABLES
+// ============================================
+
+Table notifications {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  type varchar(50) [not null]
+  title varchar(200) [not null]
+  message text
+  data json
+  read_at timestamp
+  created_at timestamp [default: `now()`]
+}
+
+Table audit_log {
+  id uuid [pk]
+  admin_user_id uuid [not null]
+  action varchar(100) [not null]
+  entity_type varchar(50) [not null]
+  entity_id uuid [not null]
+  old_values json
+  new_values json
+  ip_address varchar(45)
+  user_agent text
+  created_at timestamp [default: `now()`]
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+Enum visibility_enum {
+  private
+  friends
+  public
+}
+
+Enum follower_visibility_enum {
+  friends
+  anyone
+}
+
+Enum frequency_enum {
+  daily
+  weekly
+  monthly
+  yearly
+  once
+}
+
+Enum goal_status_enum {
+  active
+  archived
+}
+
+Enum user_goal_status_enum {
+  active
+  completed
+  paused
+  abandoned
+}
+
+Enum activity_type_enum {
+  item_completion
+  progress_log
+  visit
+}
+
+Enum badge_type_enum {
+  system
+  goal
+  event
+  category
+}
+
+Enum organiser_status_enum {
+  pending
+  approved
+  rejected
+  suspended
+  trusted
+}
+
+Enum event_status_enum {
+  draft
+  pending
+  approved
+  rejected
+  archived
+}
+
+Enum product_type_enum {
+  badge
+  patch
+  pin
+  other
+}
+
+Enum stock_status_enum {
+  in_stock
+  low_stock
+  out_of_stock
+  pre_order
+}
+
+Enum order_status_enum {
+  pending
+  paid
+  processing
+  shipped
+  delivered
+  cancelled
+  refunded
+}
+
