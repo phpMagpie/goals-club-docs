@@ -70,6 +70,7 @@ erDiagram
         string username UK
         string display_name
         boolean allow_followers
+        boolean suspended
     }
     
     goals {
@@ -183,6 +184,7 @@ Profile data for registered users. Cognito handles authentication.
 | allow_followers | BOOLEAN | Allow others to follow |
 | follower_visibility | ENUM | Who can follow (friends, anyone) |
 | default_visibility | ENUM | Default goal visibility |
+| suspended | BOOLEAN | Admin-set suspension flag (default false) |
 
 ### goals
 **Template goals** - public or community-created goals that users can join.

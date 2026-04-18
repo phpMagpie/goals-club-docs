@@ -1,6 +1,6 @@
 # Next Steps
 
-Last updated: 2026-04-12
+Last updated: 2026-04-18
 
 ---
 
@@ -19,14 +19,11 @@ We've created the schema and initial seeders for events with unclaimed organiser
 - ✅ Created EVENTS_SYSTEM.md documentation
 
 **Remaining:**
-- ⬜ Run migration: `npx sequelize-cli db:migrate`
-- ⬜ Run seeder: `npx sequelize-cli db:seed --seed 20260308000002-events-organisers.js`
-- ⬜ Create GraphQL schema for events/series/organisers
-- ⬜ Create resolvers for event queries (listEvents, getEvent, listEventSeries)
+- ⬜ Test Events & Organisers CRUD in admin (create/edit/delete)
 - ⬜ Create web UI for browsing events
 - ⬜ Add "I want to do this" interest button
 - ⬜ Link events to user goals (event-based goals)
-- ⬜ Add more events:
+- ⬜ Add more events via admin:
   - ⬜ More Great Run events (Great Scottish Run, Great Birmingham Run, etc.)
   - ⬜ SuperHalfs individual races (Lisbon, Prague, Copenhagen, Cardiff, Valencia)
   - ⬜ Remaining WMM races (Tokyo, Boston)
@@ -66,54 +63,46 @@ Badge awarding is working. Now need to complete the visual design.
 - ⬜ Update seeder with correct file extensions for each badge
 - ⬜ Test badge display with real images
 
-### 3. Social Features: Following & Reactions 👥 NEXT UP
+### 3. Social Features: Following & Reactions 👥 PARTIALLY COMPLETE
+
 Enable users to follow each other and encourage/react to activities.
 
-**Database:**
-- ⬜ Create `user_follows` table migration
-  - `id`, `follower_id`, `following_id`, `created_at`
-  - Unique constraint on (follower_id, following_id)
-- ⬜ Create `activity_reactions` table migration (or use existing `reaction_types`)
-  - `id`, `activity_id`, `user_id`, `reaction_type_id`, `created_at`
-  - Unique constraint on (activity_id, user_id) - one reaction per user per activity
+**Completed:**
+- ✅ `user_follows` table migration (`id`, `follower_id`, `following_id`, `created_at`, unique constraint)
+- ✅ `followUser(userId: ID!)` mutation + resolver (INSERT … SELECT with ON DUPLICATE KEY)
+- ✅ `unfollowUser(userId: ID!)` mutation + resolver
+- ✅ `isFollowing(userId: ID!)` query + resolver
+- ✅ `followerCount` / `followingCount` field-level resolvers on `User` type
+- ✅ Follow/Unfollow button on public profile pages (`useFollow` hook with optimistic updates)
+- ✅ Follower/following counts on profile (with optimistic local delta while toggling)
+- ✅ Fixed SQL ambiguity bug in `followUser` resolver (`ON DUPLICATE KEY UPDATE created_at = user_follows.created_at`)
 
-**GraphQL & Resolvers:**
-- ⬜ `followUser(userId: ID!)` mutation
-- ⬜ `unfollowUser(userId: ID!)` mutation
-- ⬜ `listFollowers(userId: ID!)` query
-- ⬜ `listFollowing(userId: ID!)` query
+**Remaining:**
+- ⬜ Followers/Following lists (click count to see list)
+- ⬜ `activity_reactions` table migration
+  - `id`, `activity_id`, `user_id`, `reaction_type_id`, `created_at`
+  - Unique constraint on (activity_id, user_id)
 - ⬜ `reactToActivity(activityId: ID!, reactionTypeId: ID!)` mutation
 - ⬜ `removeReaction(activityId: ID!)` mutation
 - ⬜ Update `getActivityFeed` to include activities from followed users
-- ⬜ Include reaction counts on activities
-
-**Web UI:**
-- ⬜ Follow/Unfollow button on user profiles
-- ⬜ Followers/Following counts on profile
-- ⬜ Followers/Following lists
-- ⬜ Reaction buttons on activity cards (using seeded reaction types: 👏 Cheer, 🙌 High Five, 🤩 Impressed, 💪 Keep Going, ❤️ Love It, ✨ Inspired)
-- ⬜ Show who reacted to activities
+- ⬜ Reaction buttons on activity cards (👏 Cheer, 🙌 High Five, 🤩 Impressed, 💪 Keep Going, ❤️ Love It, ✨ Inspired)
 - ⬜ Activity feed filtering (All / Following / My Goals)
+- ⬜ Notifications for follows and reactions
 
-**Notifications:**
-- ⬜ Notification when someone follows you
-- ⬜ Notification when someone reacts to your activity
-- ⬜ Notification preferences in settings
-
-### 4. User Profile Completion 👤 NEEDED
+### 4. User Profile Completion 👤 ✅ COMPLETE
 Users need to set a username after registration.
 
 **Completed:**
 - ✅ Username column added back to database
 - ✅ `useCurrentUser` detects missing username (`needsProfileSetup`)
-
-**Remaining:**
-- ⬜ Create "Choose Username" modal/page
-- ⬜ Show modal on first login if username is null
-- ⬜ `updateUser` mutation to set username
-- ⬜ Username availability check (real-time validation)
-- ⬜ Username validation (3-30 chars, alphanumeric + underscore)
-- ⬜ Profile routes: `/profile/:username` for public profiles
+- ✅ "Choose Username" modal built and shown on first login
+- ✅ Username availability check (real-time validation via `checkUsernameAvailable`)
+- ✅ Username validation uses shared `usernameSchema` (3-30 chars, alphanumeric + underscore)
+- ✅ Public profile pages at `/profile/:username` — own profile if username matches, otherwise public view
+- ✅ `getUserByUsername` resolver added to backend
+- ✅ Public profiles show only PUBLIC goals (filtered client-side), all badges, follower/following counts
+- ✅ "User not found" empty state for unknown usernames
+- ✅ Share button on own profile copies profile URL to clipboard
 
 ### 5. Admin Interface 🔧 IN PROGRESS
 The admin UI (`goals-club-admin`) has CRUD operations for core models. Tested 2026-04-12.
@@ -122,13 +111,13 @@ The admin UI (`goals-club-admin`) has CRUD operations for core models. Tested 20
 
 | Model | List | View | Create | Edit | Delete | Notes |
 |-------|------|------|--------|------|--------|-------|
-| Users | ✅ | ✅ | — | — | — | Read-only. View shows goals, badges, follower/following counts via field-level resolvers |
-| Goals | ✅ | ✅ | — | — | — | Read-only. User-created via web app |
-| Badges | ✅ | ✅ | ✅ | ✅ | ✅ | **Fully tested.** Types: system, goal, event, category. Delete uses Mantine modal confirmation |
-| Categories | ✅ | ✅ | ✅ | ✅ | ✅ | **Fully tested.** Slug auto-generates from name. Icon is emoji picker. Delete uses Mantine modal confirmation |
-| Events | ✅ | ✅ | ⬜ | ⬜ | ⬜ | **Needs create/edit pages + routes.** Backend mutations exist (`createEvent`, `updateEvent`, `deleteEvent`) |
-| Organisers | ✅ | ✅ | ⬜ | ⬜ | ⬜ | **Needs create/edit pages + routes.** Backend mutations exist (`createOrganiser`, `updateOrganiser`, `deleteOrganiser`) |
-| Orders | ✅ | ✅ | — | — | — | Read-only + status update. Show page has `updateOrderStatus` dropdown. No admin create/edit/delete needed |
+| Users | ✅ | ✅ | — | ✅ | — | Edit via `adminUpdateUser` resolver. Suspend/unsuspend toggle on show page. Hard delete intentionally omitted (cascade risk). |
+| Goals | ✅ | ✅ | — | ✅ | ✅ | Edit/delete via `adminUpdateGoal`/`adminDeleteGoal` resolvers (bypass owner check). User-created via web app. |
+| Badges | ✅ | ✅ | ✅ | ✅ | ✅ | **Fully tested.** Types: system, goal, event, category. Delete uses Mantine modal confirmation. Award Badge action on User show page. |
+| Categories | ✅ | ✅ | ✅ | ✅ | ✅ | **Fully tested.** Slug auto-generates from name. Icon is emoji picker. Delete uses Mantine modal confirmation. |
+| Events | ✅ | ✅ | ✅ | ✅ | ✅ | Built 2026-04-18, needs testing. `isFeatured` field removed (planned as link table later). |
+| Organisers | ✅ | ✅ | ✅ | ✅ | ✅ | Built 2026-04-18, needs testing. |
+| Orders | ✅ | ✅ | — | — | — | Read-only + status update. Show page has `updateOrderStatus` dropdown. No admin create/edit/delete needed. |
 
 **Legend:** ✅ = Built & tested | ⬜ = Needs building | — = Not applicable (by design)
 
@@ -163,13 +152,18 @@ The admin UI (`goals-club-admin`) has CRUD operations for core models. Tested 20
 - Resource mutations already configured in `data-provider.ts`
 
 #### Future Admin Enhancements
+- ✅ User edit (username, display name, bio, location, privacy settings)
+- ✅ User suspend/unsuspend
+- ✅ Goal edit (status, visibility, title, target, etc.)
+- ✅ Goal delete
+- ✅ User Badges management (manual award via Award Badge action)
 - ⬜ Dashboard with stats (users, goals, activities, badges awarded)
 - ⬜ Goal Types management (lookup table CRUD)
-- ⬜ User Badges management (manual award/revoke)
 - ⬜ Organiser approval workflow
 - ⬜ Event approval workflow
 - ⬜ Activity moderation (flag/remove inappropriate content)
 - ⬜ System settings / feature flags
+- ⬜ Featured events (link table with placement context, e.g. homepage, category page)
 
 
 ---
@@ -197,11 +191,11 @@ The admin UI (`goals-club-admin`) has CRUD operations for core models. Tested 20
 
 ### Week 2: Social Features
 
-**Day 1-2: Following System**
-- ⬜ Create `user_follows` migration
-- ⬜ Create follow/unfollow resolvers
-- ⬜ Add follow buttons to profile UI
-- ⬜ Update activity feed to show followed users
+**Following System ✅ COMPLETE**
+- ✅ `user_follows` migration + unique constraint
+- ✅ `followUser` / `unfollowUser` / `isFollowing` resolvers
+- ✅ Follow/unfollow UI on profile pages with optimistic updates
+- ✅ Follower/following counts on profiles
 
 **Day 3-4: Reactions System**
 - ⬜ Create `activity_reactions` migration (or wire up existing reaction_types)
@@ -233,25 +227,23 @@ The admin UI (`goals-club-admin`) has CRUD operations for core models. Tested 20
 - ⬜ Deploy to dev environment
 - ⬜ User testing with Lynsey
 
-### Week 4: Admin Interface (Started)
+### Week 4: Admin Interface ✅ DONE (2026-04-18)
 
-**Day 1-2: Admin CRUD Foundation** ✅ DONE
 - ✅ Badges full CRUD tested
 - ✅ Categories full CRUD tested
 - ✅ User view with real data (goals, badges, follows)
+- ✅ User edit — `adminUpdateUser` resolver (bypasses user-scoped `updateUser`)
+- ✅ User suspend/unsuspend toggle — `suspended` boolean column + migration
+- ✅ Goal edit — `adminUpdateGoal` resolver (bypasses owner check)
+- ✅ Goal delete — `adminDeleteGoal` resolver (bypasses owner check)
+- ✅ Goal show — `getGoal` resolver created (was missing, causing "Goal not found")
+- ✅ Award Badge action on User show page (`awardBadge` admin mutation)
 - ✅ Orders view with status update
-
-**Day 3-4: Events & Organisers CRUD**
-- ⬜ Events create + edit pages
-- ⬜ Organisers create + edit pages
-- ⬜ Delete confirmations on show pages
-- ⬜ Test full CRUD flow for both
-
-**Day 5: Polish & Remaining**
-- ⬜ Test Goals list + view
-- ⬜ Test Events list + view
-- ⬜ Test Organisers list + view
-- ⬜ Admin dashboard with stats
+- ✅ Events full CRUD built (create/edit/delete with Mantine modal — needs testing)
+- ✅ Organisers full CRUD built (create/edit/delete with Mantine modal — needs testing)
+- ✅ `isFeatured` removed from events (will be a link table with placement context later)
+- ✅ Fixed: all boolean `=== 1` comparisons in resolvers replaced with `!!` (Aurora returns true/false not 1/0)
+- ✅ All `any` types replaced with shared types across all admin pages
 
 ### Week 5: Super Goals (Stretch)
 
@@ -275,67 +267,25 @@ The admin UI (`goals-club-admin`) has CRUD operations for core models. Tested 20
 
 ## 🔧 Technical Debt / Improvements
 
-### `@goals-club/shared` Types & Validation — Major Drift (Audited 2026-04-12)
+### `@goals-club/shared` Types & Validation — ✅ Aligned 2026-04-18
 
-The shared package (`goals-club-shared`) defines TypeScript types and Zod validation schemas, but they've drifted significantly from the GraphQL schema (source of truth). The package is a dependency in both `goals-club-admin` and `goals-club-web`.
+All types and validation schemas now match the GraphQL schema exactly. Published as `@goals-club/shared@0.0.6`. Both admin and web wired up to use shared types.
 
-**Current usage of `@goals-club/shared` across repos:**
-- **Admin** — `formatPricePence` (orders), `writeEnvFile` (infra). **No types or validation imported.**
-- **Web** — `formatRelativeTime`, `formatDate`, `formatPricePence`, `CATEGORIES`, `GOAL_UNITS` (constants). **No types or validation imported.**
-- **Data** — Not a dependency at all.
+**Still to do:**
+- ⬜ Replace `CATEGORIES` constant usage in web `CreateGoal` page with API-driven `listCategories` query
 
-⚠️ **Neither admin nor web import any shared types or validation schemas.** The web app duplicates types inline (e.g. `queries.ts` has its own `Category`, `Badge` interfaces) and the admin uses `any` throughout. The shared validation schemas (Zod) are not used anywhere — the web app has inline validation (e.g. `UsernameSetupModal.tsx` duplicates username rules).
+### Admin CRUD — ✅ All Core Models Complete (2026-04-18)
 
-**Type drift severity by file:**
-
-| File | Status | Key Issues |
-|------|--------|------------|
-| `category.ts` | 🟢 Good | Matches GraphQL schema |
-| `badge.ts` | 🟡 Mostly OK | Has forward-looking fields (`categoryId`, `criteria`) not yet in GraphQL |
-| `activity.ts` | 🟡 Outdated | Legacy `Activity` model OK, but `UserGoalActivity` (the model actually in use) missing entirely |
-| `user.ts` | 🔴 Stale | `locationLat/Lng` don't exist in schema or DB, `email` optionality wrong, inputs missing fields |
-| `goal.ts` | 🔴 Stale | Uses inline `goalType` string enum instead of `goalTypeId` FK, missing enums (`PAUSED`, `ABANDONED`, `YEARLY`, `ONCE`), field name wrong (`userId` → `creatorId`), missing `UserGoal`/`GoalItem`/`UserGoalActivity` types |
-| `event.ts` | 🔴 Major divergence | Organiser has status enum but schema uses boolean flags (`isVerified`/`isActive`), Event has `status` enum but schema uses `isApproved`/`isFeatured`, wrong/missing fields throughout |
-| `order.ts` | 🔴 Over-specced | Full e-commerce model but GraphQL schema is much simpler, `OrderItem.productId` should be `badgeId` |
-
-**Constants drift:**
-- `CATEGORIES` constant has hardcoded categories with `icon: 'running'` etc. — but the DB categories use emoji icons and are admin-managed. This constant is used by the web `CreateGoal` page but will be stale vs actual DB categories.
-
-**Recommended fix approach:**
-1. ⬜ Align all shared types to match the GraphQL schema exactly (single source of truth)
-2. ⬜ Add missing types: `GoalType` (lookup), `UserGoal`, `GoalItem`, `UserGoalActivity`, `UserGoalPeriod`
-3. ⬜ Rewrite `event.ts` Organiser/Event types to match schema (boolean flags, not status enums)
-4. ⬜ Simplify `order.ts` to match actual GraphQL schema
-5. ⬜ Import shared types in admin pages (replace `any` with proper types)
-6. ⬜ Import shared types in web pages (replace inline type definitions in `queries.ts`)
-7. ⬜ Wire up Zod validation schemas in admin create/edit forms and web forms
-8. ⬜ Replace `CATEGORIES` constant with API-driven category fetching (or mark as deprecated)
-9. ⬜ Use shared `usernameSchema` in web `UsernameSetupModal.tsx` instead of inline duplicate
-
-### Admin CRUD — Remaining Pages
-
-**Events (backend mutations exist, pages needed):**
-- ⬜ `pages/events/create.tsx` — organiserId (select from API), categoryId (select), name, description, eventDate, registrationCloseDate, locationName, locationAddress, websiteUrl, registrationUrl, imageUrl, maxParticipants, pricePence, isApproved, isFeatured
-- ⬜ `pages/events/edit.tsx` — same fields, pre-populated
-- ⬜ Wire routes: `/events/create`, `/events/:id/edit`
-- ⬜ Add delete with Mantine modal on show page
-
-**Organisers (backend mutations exist, pages needed):**
-- ⬜ `pages/organisers/create.tsx` — name, description, websiteUrl, logoUrl, contactEmail, isVerified, isActive
-- ⬜ `pages/organisers/edit.tsx` — same fields, pre-populated
-- ⬜ Wire routes: `/organisers/create`, `/organisers/:id/edit`
-- ⬜ Add delete with Mantine modal on show page
-
-**CRUD test checklist (for verification after building):**
+**CRUD test checklist:**
 
 | Resource | List | View | Create | Edit | Delete | Status |
 |----------|------|------|--------|------|--------|--------|
-| Users | ✅ | ✅ | — | — | — | Tested 2026-04-12 |
-| Goals | ✅ | ✅ | — | — | — | Untested |
+| Users | ✅ | ✅ | — | ✅ | — | Edit & suspend built 2026-04-18 |
+| Goals | ✅ | ✅ | — | ✅ | ✅ | Edit & delete built 2026-04-18 |
 | Badges | ✅ | ✅ | ✅ | ✅ | ✅ | Tested 2026-04-12 |
 | Categories | ✅ | ✅ | ✅ | ✅ | ✅ | Tested 2026-04-12 |
-| Events | ✅ | ✅ | ⬜ | ⬜ | ⬜ | List/view untested |
-| Organisers | ✅ | ✅ | ⬜ | ⬜ | ⬜ | List/view untested |
+| Events | ✅ | ✅ | ✅ | ✅ | ✅ | Built 2026-04-18, needs testing |
+| Organisers | ✅ | ✅ | ✅ | ✅ | ✅ | Built 2026-04-18, needs testing |
 | Orders | ✅ | ✅ | — | — | — | Untested (has status update) |
 
 ### AppSync Resolver Architecture — Establish Convention (Audited 2026-04-12)
@@ -397,7 +347,39 @@ Currently 67 unit resolvers and 2 pipeline resolvers (`checkAndAwardBadges`, `lo
 
 ---
 
-## ✅ Recently Completed (2026-04-12)
+## ✅ Recently Completed (2026-04-18)
+
+- [x] Data: `followUser` resolver — INSERT … SELECT with ON DUPLICATE KEY; fixed `created_at` ambiguity bug
+- [x] Data: `unfollowUser` resolver
+- [x] Data: `isFollowing` query resolver
+- [x] Data: `followerCount` / `followingCount` field-level resolvers on `User` type
+- [x] Data: `updateUserGoal(userGoalId: ID!, input: UpdateUserGoalInput!)` mutation + resolver — updates `visibility`, `customTitle`, `customDescription` (COALESCE so only provided fields change; user-scoped via JOIN)
+- [x] Data: `UpdateUserGoalInput` added to GraphQL schema
+- [x] Web: `useFollow` hook — `isFollowing` state, optimistic toggle, `isToggling` loading state
+- [x] Web: Follow/Unfollow button on public profile pages with optimistic local follower count delta
+- [x] Web: `UPDATE_USER_GOAL` mutation in `queries.ts`
+- [x] Web: `useUpdateUserGoal` hook
+- [x] Web: Quick visibility toggle on My Goals page — globe/lock `ActionIcon` per goal card, toggles PUBLIC ↔ PRIVATE with loading spinner; card link navigation is suppressed via `e.preventDefault()` + `e.stopPropagation()`
+
+- [x] Web: Public profile pages at `/profile/:username` — own or public view based on logged-in user
+- [x] Data: `getUserByUsername` resolver + schema field (`@aws_api_key @aws_cognito_user_pools`)
+- [x] Web: `usePublicProfile` hook with loading/notFound/error states
+- [x] Web: Public profiles show only PUBLIC goals, all badges, follower/following counts
+- [x] Web: Share button on own profile copies URL to clipboard
+- [x] Web: "User not found" empty state with icon and Explore link
+- [x] Admin: Users — suspend/unsuspend toggle on show page (`suspended` boolean column + migration)
+- [x] Admin: Users — Award Badge modal on show page (`awardBadge` admin mutation with badge select)
+- [x] Admin: Goals — edit page (`adminUpdateGoal` resolver, bypasses owner check; status, visibility, title, target, frequency, allowJoins)
+- [x] Admin: Goals — delete with confirmation modal (`adminDeleteGoal` resolver)
+- [x] Data: Created `getGoal` resolver (was missing — caused "Goal not found" on show page)
+- [x] Data: Created `adminUpdateGoal` resolver (admin bypass of `WHERE user_id = userId` owner check)
+- [x] Data: Created `adminDeleteGoal` resolver (admin bypass of owner check)
+- [x] Data: Created `adminUpdateUser` resolver (admin update by DB id, not cognito sub)
+- [x] Data: Added `suspended: Boolean!` to `User` GraphQL type and `UpdateUserInput`
+- [x] Data: Migration `20260418130000-add-suspended-to-users.js` — adds `suspended` column to users table
+- [x] Data: Fixed all boolean `=== 1` comparisons across resolvers — replaced with `!!` (Aurora Serverless returns JS `true`/`false`, not `1`/`0`)
+- [x] Data: Removed `isFeatured`/`is_featured` from all event resolvers and GraphQL schema (will be a link table with placement context later)
+- [x] Shared: Added `suspended` to `User` interface and `UpdateUserInput`
 
 - [x] Admin: Badges full CRUD — list, view, create, edit, delete (tested)
 - [x] Admin: Categories full CRUD — list, view, create, edit, delete (tested)

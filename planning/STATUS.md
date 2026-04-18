@@ -1,6 +1,6 @@
 # Project Status & Roadmap
 
-**Last Updated:** March 8, 2026
+**Last Updated:** April 18, 2026
 
 ---
 
@@ -26,17 +26,32 @@
 
 ### Admin Console ✅
 - [x] Refine + Mantine 8 setup
-- [x] CRUD for Goals, Categories, Users
+- [x] Full CRUD for Badges, Categories, Events, Organisers
+- [x] Users — list, view, edit (profile fields + privacy), suspend/unsuspend, award badge
+- [x] Goals — list, view, edit (status/visibility/target), delete
 - [x] Goal types management
 - [x] Activity log viewing
+- [x] Orders view with status update
 
 ### Web App ✅
 - [x] User authentication (register/login)
 - [x] Dashboard with real data
-- [x] Goals list (my goals)
+- [x] Goals list (my goals) with quick visibility toggle (public/private per goal)
 - [x] Explore page (browse public goals)
 - [x] Join goal functionality
 - [x] Goal detail page with item list
+- [x] Public profile pages (`/profile/:username`) — own profile + viewing other users' public goals & badges
+- [x] Username setup modal on first login
+- [x] Follow/unfollow users from public profile pages
+- [x] Follower/following counts on profiles (with optimistic local delta on follow/unfollow)
+
+### Social Features ✅
+- [x] `user_follows` table with unique constraint on (follower_id, following_id)
+- [x] `followUser` / `unfollowUser` mutations and resolvers
+- [x] `isFollowing` query
+- [x] `followerCount` / `followingCount` field-level resolvers on `User` type
+- [x] Follow/Unfollow button on public profiles
+- [x] `useFollow` hook with optimistic updates
 
 ### Collection Goals ✅
 - [x] Wainwrights (214 peaks) seeded
@@ -248,6 +263,21 @@ cd goals-club-data && make down
 |-----------|------|-------|
 | Catbells | 12/04/2023 | Really popular, wore brand new Van boots, bad mistake. |
 
+### Admin user accounts after stack rebuild
+After `pulumi up`, **do not seed user records manually** — just log in via the web app. The auto-create flow creates the DB record with the correct Cognito `cognito_id` from the JWT automatically.
+
+If you need to pre-assign goals/badges to an account, get the Cognito sub first:
+```bash
+AWS_PROFILE=goalsclub aws cognito-idp list-users \
+  --user-pool-id $(cat .env | grep COGNITO_USER_POOL_ID | cut -d= -f2) \
+  --region eu-west-1 \
+  --filter "email = \"paul@thegoalsclub.co.uk\"" \
+  --query "Users[0].Username" --output text
+```
+Use that value as `cognito_id` in any seeders that create user rows.
+
+**Self-healing:** The `getMe` resolver also self-heals mismatched `cognito_id`s — if a user row exists with the right email but wrong/null `cognito_id`, it fixes it automatically on first login.
+
 ---
 
 ## ✅ Completed Log
@@ -261,6 +291,8 @@ cd goals-club-data && make down
 | 2026-03-07 | Frequency goals, Streak tracking, Pipeline resolvers |
 | 2026-03-08 | Documentation consolidation |
 | 2026-03-08 | **Badge system complete** - Auto-award, confetti, modal celebration |
+| 2026-04-18 | **Social features complete** - Follow/unfollow, public profiles, follower counts |
+| 2026-04-18 | **Goal visibility** - `updateUserGoal` mutation + quick toggle on My Goals page |
 
 ---
 
