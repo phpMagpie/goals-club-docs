@@ -82,22 +82,30 @@ Individual event instances (a specific date/location).
 
 ## User Interactions
 
-### Expressing Interest
-Users can mark events they want to participate in:
-- "I want to do this" → adds to their wishlist
-- Helps us gauge demand and notify users
+### Expressing Interest (Shortlist)
+Users can shortlist events they're considering:
+- "Shortlist" → adds to `user_event_interests` with status `INTERESTED`
+- Shown as "Shortlisted" badge on the event
 
-### Logging Participation
-After completing an event, users can log it as an activity:
-- Links to their event goal
-- Records finish time, photos, notes
-- Earns relevant badges
+### "I'm Doing This" (Commit)
+When a user commits to an event:
+- Calls `joinGoal` on the event's canonical goal (`goals.event_id = event.id`)
+- Creates a `user_goals` record linking user to the canonical goal
+- Status is checked by querying `listMyGoals` for a matching `goalId` with `status = ACTIVE`
+- Shows a "View Goal" card on the event detail page
+- Shows a "View Event" card on the goal detail page (bidirectional navigation)
 
-### Event Goals
-Users can create goals based on events:
-- "Complete the Great North Run"
-- "Run all Abbott World Marathon Majors"
-- "Do 50 different parkruns"
+### Canonical Event Goals
+When an admin approves an event:
+- The `createCanonicalGoalForEvent` pipeline function auto-creates a `goals` record
+- Goal type: `event`, visibility: `PUBLIC`, title = event name
+- `events.goal_id` is updated to link back to the goal
+- Users who commit join this shared canonical goal
+
+### Rejoining
+If a user leaves (abandons) an event goal:
+- The `joinGoal` mutation uses `ON DUPLICATE KEY UPDATE status = 'ACTIVE'`
+- Users can rejoin from the Abandoned tab in My Goals or from the event detail page
 
 ## Claiming an Organiser Account
 

@@ -1,92 +1,111 @@
 # Project Status & Roadmap
 
-**Last Updated:** April 18, 2026
+**Last Updated:** April 19, 2026
 
 ---
 
-## 📊 Current Phase: Week 4 — Super Goals & Wainwright Regions
+## 📊 Current Phase: Week 5 — Reactions & Strava
 
 ### This Week's Focus
-- Super goal structure (parent/child goals)
-- Wainwright regional split
-- NT "Visit All UK" super goal
+- Reaction buttons on activity cards (backend ready, needs UI)
+- Followers/Following lists
+- Strava integration planning (OAuth flow, webhook, activity sync)
 
 ---
 
 ## ✅ Completed Features
 
 ### Core Infrastructure ✅
-- [x] Aurora Serverless v2 MySQL database
-- [x] AppSync GraphQL API with RDS data source
-- [x] Cognito authentication (Admin + Web clients)
-- [x] S3 + CloudFront deployments (Admin, Web)
-- [x] Route 53 DNS (migrated from Cloudflare)
-- [x] SES for email (DKIM configured)
-- [x] SSL certificate (wildcard *.thegoalsclub.co.uk)
+- ✅ Aurora Serverless v2 MySQL database
+- ✅ AppSync GraphQL API with RDS data source
+- ✅ Cognito authentication (Admin + Web clients)
+- ✅ S3 + CloudFront deployments (Admin, Web)
+- ✅ Route 53 DNS (migrated from Cloudflare)
+- ✅ SES for email (DKIM configured)
+- ✅ SSL certificate (wildcard *.thegoalsclub.co.uk)
 
 ### Admin Console ✅
-- [x] Refine + Mantine 8 setup
-- [x] Full CRUD for Badges, Categories, Events, Organisers
-- [x] Users — list, view, edit (profile fields + privacy), suspend/unsuspend, award badge
-- [x] Goals — list, view, edit (status/visibility/target), delete
-- [x] Goal types management
-- [x] Activity log viewing
-- [x] Orders view with status update
+- ✅ Refine + Mantine 8 setup
+- ✅ Full CRUD for Badges, Categories, Events, Organisers
+- ✅ Users — list, view, edit (profile fields + privacy), suspend/unsuspend, award badge
+- ✅ Goals — list, view, edit (status/visibility/target), delete
+- ✅ Goal types management
+- ✅ Activity log viewing
+- ✅ Orders view with status update
 
 ### Web App ✅
-- [x] User authentication (register/login)
-- [x] Dashboard with real data
-- [x] Goals list (my goals) with quick visibility toggle (public/private per goal)
-- [x] Explore page (browse public goals)
-- [x] Join goal functionality
-- [x] Goal detail page with item list
-- [x] Public profile pages (`/profile/:username`) — own profile + viewing other users' public goals & badges
-- [x] Username setup modal on first login
-- [x] Follow/unfollow users from public profile pages
-- [x] Follower/following counts on profiles (with optimistic local delta on follow/unfollow)
+- ✅ User authentication (register/login)
+- ✅ Dashboard with real data
+- ✅ Goals list (my goals) with quick visibility toggle (public/private per goal)
+- ✅ Abandoned goals tab + Rejoin functionality
+- ✅ Explore page (browse public goals)
+- ✅ Join goal functionality
+- ✅ Goal detail page with item list
+- ✅ Event link on event-based goals ("View Event" card)
+- ✅ Events browse page
+- ✅ Event detail page with "I'm Doing This" / Shortlist buttons
+- ✅ "I'm Doing This" joins the event's canonical goal + shows "View Goal" card
+- ✅ Bidirectional navigation: event ↔ goal
+- ✅ Public profile pages (`/profile/:username`) — own profile + viewing other users' public goals & badges
+- ✅ Username setup modal on first login
+- ✅ Follow/unfollow users from public profile pages
+- ✅ Follower/following counts on profiles (with optimistic local delta on follow/unfollow)
 
 ### Social Features ✅
-- [x] `user_follows` table with unique constraint on (follower_id, following_id)
-- [x] `followUser` / `unfollowUser` mutations and resolvers
-- [x] `isFollowing` query
-- [x] `followerCount` / `followingCount` field-level resolvers on `User` type
-- [x] Follow/Unfollow button on public profiles
-- [x] `useFollow` hook with optimistic updates
+- ✅ `user_follows` table with unique constraint on (follower_id, following_id)
+- ✅ `followUser` / `unfollowUser` mutations and resolvers
+- ✅ `isFollowing` query
+- ✅ `followerCount` / `followingCount` field-level resolvers on `User` type
+- ✅ Follow/Unfollow button on public profiles
+- ✅ `useFollow` hook with optimistic updates
+- ✅ Visibility system: PUBLIC / FRIENDS / PRIVATE (backend-enforced on User.goals resolver)
+- ✅ Activity feed filters by visibility + follower status
+- ✅ Dashboard: Recent Activity feed (you + followed users)
+- ✅ Dashboard: Upcoming Events (featured + 3 cards)
+- ✅ Dashboard: Popular Goals (4 public goals)
+- ✅ Profile: Streak badges (🏆 best / 🔥 active) + progress bars on goals
+- ✅ `reactions` table + `addReaction`/`removeReaction` resolvers (backend ready)
+
+### Test Data & Developer Experience ✅
+- ✅ Test data seeder (8 users, goals, activities, follows, reactions, badges, streaks)
+- ✅ `make db_seed_test` / `make db_unseed_test` commands
+- ✅ `@goals-club/shared` deduped to root `package.json` only (web + admin)
+- ✅ Self-healing auth: `getMe` + `createUser` resolvers auto-fix stale `cognito_id`
 
 ### Collection Goals ✅
-- [x] Wainwrights (214 peaks) seeded
-- [x] National Trust (11 regional goals, 548 sites)
-- [x] Item completion tracking
-- [x] Progress calculation (items completed / total)
-- [x] Multiple visits to same item
+- ✅ Wainwrights (214 peaks) seeded
+- ✅ National Trust (11 regional goals, 548 sites)
+- ✅ Item completion tracking
+- ✅ Progress calculation (items completed / total)
+- ✅ Multiple visits to same item
 
 ### Maps Integration ✅
-- [x] Mapbox GL for location-based goals
-- [x] Conditional display (only for location-based goals)
-- [x] Green markers = completed, Blue = pending
-- [x] Popup details with completion status
-- [x] Auto-fit bounds to show all markers
+- ✅ Mapbox GL for location-based goals
+- ✅ Conditional display (only for location-based goals)
+- ✅ Green markers = completed, Blue = pending
+- ✅ Popup details with completion status
+- ✅ Auto-fit bounds to show all markers
 
 ### Frequency/Distance Goals ✅
-- [x] Target value, unit, frequency fields
-- [x] Period tracking (daily/weekly/monthly)
-- [x] Pipeline resolver for atomic updates
-- [x] `user_goal_periods` table
-- [x] Streak tracking (current + longest streak)
-- [x] Period history UI with visual indicators
-- [x] Example goals: "10,000 Steps a Day", "Cycle to Work 3x per Week"
+- ✅ Target value, unit, frequency fields
+- ✅ Period tracking (daily/weekly/monthly)
+- ✅ Pipeline resolver for atomic updates
+- ✅ `user_goal_periods` table
+- ✅ Streak tracking (current + longest streak)
+- ✅ Period history UI with visual indicators
+- ✅ Example goals: "10,000 Steps a Day", "Cycle to Work 3x per Week"
 
 ### Authentication ✅
-- [x] Cognito with Admin/Web app clients
-- [x] Admin users in "Admins" group
-- [x] Self-registration for web users
-- [x] Auto-create user record on first login
+- ✅ Cognito with Admin/Web app clients
+- ✅ Admin users in "Admins" group
+- ✅ Self-registration for web users
+- ✅ Auto-create user record on first login
 
 ---
 
 ## 🔜 Next Priorities
 
-### Week 4: Super Goals (Paused)
+### Week 4: Super Goals & Wainwright Regions ⬜ (Moved to Week 7)
 - [ ] Add `parent_goal_id` to goals table
 - [ ] Create `super_goal` goal_type
 - [ ] "Visit All NT Sites (UK)" super goal (links 11 regional goals)
@@ -95,20 +114,20 @@
 - [ ] Auto-calculate progress from child goals
 
 ### Week 5: Badges & Rewards ✅ COMPLETE
-- [x] Badge trigger system (criteria-based checking)
-- [x] Auto-award badges via `checkAndAwardBadges` mutation
-- [x] "Check for Badges" button on Badges page
-- [x] Confetti animation on badge award
-- [x] Modal showing newly earned badges
-- [x] Initial system badges seeded (Founding Member, Goal Getter, First Steps, etc.)
-- [x] Badge display on profile page
-- [x] Auto-check badges after logging activity
+- ✅ Badge trigger system (criteria-based checking)
+- ✅ Auto-award badges via `checkAndAwardBadges` mutation
+- ✅ "Check for Badges" button on Badges page
+- ✅ Confetti animation on badge award
+- ✅ Modal showing newly earned badges
+- ✅ Initial system badges seeded (Founding Member, Goal Getter, First Steps, etc.)
+- ✅ Badge display on profile page
+- ✅ Auto-check badges after logging activity
 
-### Week 6: Social Features
-- [ ] Activity feed from followed users/goals
-- [ ] Follow/unfollow functionality
-- [ ] Reactions/cheers on activities
-- [ ] Public profile pages
+### Week 6: Social Features ✅ COMPLETE
+- ✅ Activity feed from followed users/goals
+- ✅ Follow/unfollow functionality
+- ⬜ Reactions/cheers on activities (backend ready, UI pending)
+- ✅ Public profile pages
 
 ---
 
@@ -120,10 +139,11 @@
 | 1 | Foundation & Core Goal Flow | ✅ Complete |
 | 2 | Activity Logging & Progress | ✅ Complete |
 | 3 | Goal Types & Multiple Visits | ✅ Complete |
-| **4** | **Super Goals & Wainwright Regions** | 🔄 In Progress |
-| 5 | Badges & Rewards | ⬜ Planned |
-| 6 | Social Features | ⬜ Planned |
-| 7 | Profile Polish & Launch Prep | ⬜ Planned |
+| **4** | **Admin, Social, Dashboard** | ✅ Complete |
+| **5** | **Reactions & Activity Feed Polish** | 🔄 Next up |
+| 6 | Strava Integration | ⬜ Planned |
+| 7 | Super Goals & Wainwright Regions | ⬜ Planned |
+| 8 | Profile Polish & Launch Prep | ⬜ Planned |
 
 ### Post-MVP (After Launch)
 | Phase | Focus | Notes |
@@ -293,6 +313,18 @@ Use that value as `cognito_id` in any seeders that create user rows.
 | 2026-03-08 | **Badge system complete** - Auto-award, confetti, modal celebration |
 | 2026-04-18 | **Social features complete** - Follow/unfollow, public profiles, follower counts |
 | 2026-04-18 | **Goal visibility** - `updateUserGoal` mutation + quick toggle on My Goals page |
+| 2026-04-19 | **Events system complete** - Browse, detail, "I'm Doing This" joins canonical event goal |
+| 2026-04-19 | **Event ↔ Goal linking** - Bidirectional navigation between events and goals |
+| 2026-04-19 | **Abandoned goals** - Abandoned tab on My Goals + Rejoin button |
+| 2026-04-19 | **ID consistency** - All resolvers use `util.autoUlid()`, seeders use `ulid` package |
+| 2026-04-19 | **Admin pagination** - All list pages paginated (20 per page, events 15) |
+| 2026-04-19 | **Admin pipeline resolvers** - `createEvent`, `updateEvent`, `commitToEvent` converted to pipelines with `fetchEventResult` for clean return |
+| 2026-04-19 | **Visibility system** - Backend-enforced PUBLIC/FRIENDS/PRIVATE on User.goals + activity feed |
+| 2026-04-19 | **Dashboard enrichment** - Upcoming Events, Popular Goals, Recent Activity sections |
+| 2026-04-19 | **Profile streaks** - 🏆 best / 🔥 active streak badges + progress bars on profile goals |
+| 2026-04-19 | **Test data seeder** - 8 users with goals, activities, follows, reactions, badges, streak periods |
+| 2026-04-19 | **Auth self-healing** - getMe/createUser resolvers auto-fix stale cognito_id (prevents infinite loop) |
+| 2026-04-19 | **Package dedup** - @goals-club/shared moved to root package.json only (web + admin) |
 
 ---
 
