@@ -1,15 +1,16 @@
 # Project Status & Roadmap
 
-**Last Updated:** April 19, 2026
+**Last Updated:** April 21, 2026
 
 ---
 
-## 📊 Current Phase: Week 5 — Reactions & Strava
+## 📊 Current Phase: Week 6 — Strava Integration ✅ COMPLETE
 
 ### This Week's Focus
-- Reaction buttons on activity cards (backend ready, needs UI)
-- Followers/Following lists
-- Strava integration planning (OAuth flow, webhook, activity sync)
+- ✅ Strava OAuth connect/disconnect
+- ✅ Strava webhook subscription (auto-log activities)
+- ✅ Goal ↔ Strava activity type linking
+- ✅ First Strava activity auto-logged to a goal
 
 ---
 
@@ -72,7 +73,26 @@
 - ✅ `@goals-club/shared` deduped to root `package.json` only (web + admin)
 - ✅ Self-healing auth: `getMe` + `createUser` resolvers auto-fix stale `cognito_id`
 
-### Collection Goals ✅
+### Strava Integration ✅
+- ✅ `strava_tokens` table (user_id, access_token, refresh_token, expires_at, strava_athlete_id)
+- ✅ `strava_goal_links` table (user_goal_id, strava_activity_type, unique constraint)
+- ✅ Strava OAuth Lambda (outside VPC — exchanges code with Strava API, upserts tokens via RDS Data API)
+- ✅ AppSync Lambda data source + `connectStrava` mutation resolver
+- ✅ `getMyStravaConnection` query + `disconnectStrava` mutation (RDS resolvers)
+- ✅ Settings page (`/settings`) — Connect/Disconnect Strava with status display
+- ✅ Strava callback page (`/callback/strava`) — handles OAuth redirect, calls `connectStrava`, redirects to profile
+- ✅ `useStravaConnection` hook
+- ✅ `useStravaGoalLinks` hook — list, link, unlink activity types per goal
+- ✅ Goal detail page — "Strava Auto-Sync" panel (visible when Strava connected + recurring goal)
+- ✅ Strava webhook Lambda + API Gateway HTTP API (Lambda Function URLs blocked by AWS Org SCP — switched to API Gateway)
+- ✅ Webhook processes `activity.create` events — fetches activity from Strava API, matches linked goals, logs progress
+- ✅ Token refresh handled in webhook Lambda (6-hour Strava token expiry)
+- ✅ Strava webhook subscription registered (ID: 341774)
+- ✅ **First Strava activity auto-logged to a goal** 🎉
+- ✅ Multiple goals can share same activity type (e.g. "Run" linked to weekly + monthly goals)
+- ✅ Multiple activity types can be linked to same goal (e.g. "Run" + "Walk")
+
+
 - ✅ Wainwrights (214 peaks) seeded
 - ✅ National Trust (11 regional goals, 548 sites)
 - ✅ Item completion tracking
@@ -141,7 +161,7 @@
 | 3 | Goal Types & Multiple Visits | ✅ Complete |
 | **4** | **Admin, Social, Dashboard** | ✅ Complete |
 | **5** | **Reactions & Activity Feed Polish** | 🔄 Next up |
-| 6 | Strava Integration | ⬜ Planned |
+| **6** | **Strava Integration** | ✅ Complete |
 | 7 | Super Goals & Wainwright Regions | ⬜ Planned |
 | 8 | Profile Polish & Launch Prep | ⬜ Planned |
 
@@ -150,7 +170,7 @@
 |-------|-------|-------|
 | 2.1 | Physical Merchandise Shop | Need merch partners first |
 | 2.2 | Event Organisers | Organiser registration + events |
-| 2.3 | Strava Integration | Requires live site for OAuth |
+| 2.3 | Strava API Approval | Requires privacy policy, "Powered by Strava" badge, Strava app settings — see STRAVA_API_APPROVAL.md |
 | 2.4 | Local Goal Clubs | Organic community growth needed |
 
 ---
@@ -273,7 +293,7 @@ cd goals-club-data && make down
 | [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) | Full schema reference |
 | [`APPSYNC_JS_RUNTIME.md`](./APPSYNC_JS_RUNTIME.md) | Resolver guidelines |
 | [`MAP_VIEW_SETUP.md`](./MAP_VIEW_SETUP.md) | Mapbox configuration |
-| [`SSL_CERTIFICATE_SETUP.md`](./SSL_CERTIFICATE_SETUP.md) | Certificate reference |
+| [`STRAVA_API_APPROVAL.md`](./STRAVA_API_APPROVAL.md) | Strava API approval checklist |
 
 ---
 
@@ -313,6 +333,9 @@ Use that value as `cognito_id` in any seeders that create user rows.
 | 2026-03-08 | **Badge system complete** - Auto-award, confetti, modal celebration |
 | 2026-04-18 | **Social features complete** - Follow/unfollow, public profiles, follower counts |
 | 2026-04-18 | **Goal visibility** - `updateUserGoal` mutation + quick toggle on My Goals page |
+| 2026-04-20 | **Strava integration complete** — OAuth, webhook, goal linking, first activity auto-logged |
+| 2026-04-20 | **API Gateway webhook** — Lambda Function URLs blocked by AWS Org SCP; switched to API Gateway HTTP API |
+| 2026-04-20 | **Strava webhook subscription registered** (ID: 341774) |
 | 2026-04-19 | **Events system complete** - Browse, detail, "I'm Doing This" joins canonical event goal |
 | 2026-04-19 | **Event ↔ Goal linking** - Bidirectional navigation between events and goals |
 | 2026-04-19 | **Abandoned goals** - Abandoned tab on My Goals + Rejoin button |

@@ -1,10 +1,49 @@
 # Next Steps
 
-Last updated: 2026-04-19
+Last updated: 2026-04-21
 
 ---
 
-## 🎯 Current Sprint: Events, Badges & Social
+## 🎯 Current Sprint: Strava API Approval & Reactions
+
+### Week 6: Strava Integration ✅ COMPLETE (2026-04-20)
+
+**OAuth & Account Linking ✅**
+- ✅ `strava_tokens` table migration
+- ✅ Strava OAuth Lambda (outside VPC — exchanges code, upserts tokens via RDS Data API)
+- ✅ AppSync Lambda data source + `connectStrava` mutation
+- ✅ `getMyStravaConnection` query + `disconnectStrava` mutation (RDS resolvers)
+- ✅ Settings page (`/settings`) — Connect/Disconnect with status
+- ✅ Strava callback page (`/callback/strava`)
+- ✅ `useStravaConnection` hook
+- ✅ `VITE_STRAVA_CLIENT_ID` injected via Pulumi into web `.env`
+
+**Activity Sync ✅**
+- ✅ `strava_goal_links` table (user_goal_id, strava_activity_type, unique)
+- ✅ Strava webhook Lambda — processes `activity.create`, fetches from Strava API, matches linked goals, logs progress
+- ✅ Token refresh in webhook Lambda (6-hour Strava token expiry)
+- ✅ API Gateway HTTP API for webhook endpoint (Lambda Function URLs blocked by AWS Org SCP)
+- ✅ Webhook subscription registered (ID: 341774)
+- ✅ **First Strava activity auto-logged to a goal** 🎉
+
+**Goal Matching UI ✅**
+- ✅ `useStravaGoalLinks` hook — list, link, unlink per goal
+- ✅ "Strava Auto-Sync" panel on goal detail (recurring goals + Strava connected)
+- ✅ One activity type can link to multiple goals
+- ✅ Multiple activity types can link to one goal
+
+**Strava API Approval — Submitted 2026-04-21**
+- ✅ Privacy policy page (`/privacy`)
+- ✅ Terms of service page (`/terms`)
+- ✅ "Powered by Strava" attribution (Settings + Goal Detail)
+- ✅ App icon uploaded to Strava API settings
+- ✅ Approval email sent to Strava with screenshots (2026-04-21)
+- ⏳ Awaiting Strava review response
+- See [`STRAVA_API_APPROVAL.md`](./STRAVA_API_APPROVAL.md) for full details
+
+---
+
+
 
 ### 1. Events & Organisers System 🏃 ✅ COMPLETE
 
@@ -240,26 +279,11 @@ Also update the CRUD table above — Events and Organisers are now tested:
 - ⬜ Click follower/following count to see user list modal
 - ⬜ Follow/unfollow from the list
 
-### Week 6: Strava Integration ⬜
+### Week 6: Strava Integration ✅ COMPLETE (2026-04-20)
 
-**OAuth & Account Linking**
-- ⬜ Strava OAuth2 flow (requires live site URL for callback)
-- ⬜ `strava_tokens` table (user_id, access_token, refresh_token, expires_at, athlete_id)
-- ⬜ Settings page: "Connect Strava" button + connection status
-- ⬜ Token refresh Lambda (Strava tokens expire every 6 hours)
+See completed section above and [`STRAVA_API_APPROVAL.md`](./STRAVA_API_APPROVAL.md) for pending approval steps.
 
-**Activity Sync**
-- ⬜ Strava webhook subscription (receives new activities in real-time)
-- ⬜ Lambda to process Strava webhook → match to user goals → auto-log activity
-- ⬜ Activity type mapping: Strava Run → distance goals, Strava Hike → Wainwright check-in, etc.
-- ⬜ "Imported from Strava" badge on activity cards
-- ⬜ Manual sync button ("Sync Recent Activities")
-- ⬜ Deduplication: don't double-count manually logged + Strava-synced activities
 
-**Goal Matching**
-- ⬜ Auto-match Strava activities to joined goals by type (run → running goals, ride → cycling goals)
-- ⬜ Distance/elevation extraction for progress updates
-- ⬜ Location matching for collection goals (Wainwright summit proximity check)
 
 ### Week 7: Super Goals ⬜ (Moved from Week 5)
 
@@ -362,7 +386,51 @@ Currently 67 unit resolvers and 2 pipeline resolvers (`checkAndAwardBadges`, `lo
 
 ---
 
+## ✅ Recently Completed (2026-04-21)
+
+- ✅ Web: Privacy policy page (`/privacy`) — covers Strava data, GDPR rights, data sharing, cookies
+- ✅ Web: Terms of service page (`/terms`) — covers Strava integration, acceptable use, IP, liability
+- ✅ Web: Contact page (`/contact`) — mailto link to support@thegoalsclub.co.uk
+- ✅ Web: Privacy, Terms, Contact routes moved inside `AppLayout` (header + footer visible)
+- ✅ Web: Footer links (Privacy, Terms, Contact) added to AppLayout — visible on all authenticated pages
+- ✅ Web: Goals Club logo added to site header — replaces text-only branding
+- ✅ Web: Header scroll-shrink animation (logo 75px → 40px on scroll, title order 3 → 4)
+- ✅ Web: "Powered by Strava" attribution added to Goal Detail page (Strava Auto-Sync panel)
+- ✅ Web: "Powered by Strava" already on Settings page (Strava icon + text link)
+- ✅ Branding: Goals Club logo created (goat + mountain + target + checkmark)
+- ✅ Branding: Logo uploaded to Strava API app settings as square app icon
+- ✅ Docs: `STRAVA_API_APPROVAL.md` updated with completed items and remaining steps
+- ✅ Strava: Approval email sent to Strava with screenshots and app details
+- ✅ Docs: Updated STRAVA_API_APPROVAL.md — noted dev mode limits 1 athlete (not 15), marked approval as submitted
+
+## ✅ Recently Completed (2026-04-20)
+
+- ✅ Data: `strava_tokens` table migration
+- ✅ Data: `strava_goal_links` table migration
+- ✅ Data: Strava OAuth Lambda (outside VPC, RDS Data API) — `connectStrava` mutation
+- ✅ Data: `getMyStravaConnection` query resolver (RDS)
+- ✅ Data: `disconnectStrava` mutation resolver (RDS)
+- ✅ Data: GraphQL schema — `StravaConnection` type, `connectStrava`/`disconnectStrava`/`getMyStravaConnection`
+- ✅ Data: `linkStravaActivityType` / `unlinkStravaActivityType` / `listStravaGoalLinks` resolvers
+- ✅ Data: Strava webhook Lambda — processes `activity.create`, fetches Strava activity, matches goal links, logs progress
+- ✅ Data: Token refresh logic in webhook Lambda (Strava tokens expire every 6 hours)
+- ✅ Data: API Gateway HTTP API for webhook (Lambda Function URLs blocked by AWS Org SCP)
+- ✅ Data: Strava webhook subscription registered (ID: 341774)
+- ✅ Data: Pulumi — `lambda-strava-oauth.ts`, `lambda-strava-webhook.ts` modules
+- ✅ Data: Makefile — `strava_oauth_lambda` + `strava_webhook_lambda` build targets
+- ✅ Data: `STRAVA_CLIENT_ID` + `STRAVA_CLIENT_SECRET` added to Pulumi config (secrets)
+- ✅ Web: Settings page (`/settings`) — Connect/Disconnect Strava
+- ✅ Web: Strava callback page (`/callback/strava`)
+- ✅ Web: `useStravaConnection` hook
+- ✅ Web: `useStravaGoalLinks` hook + `STRAVA_ACTIVITY_TYPES` constant
+- ✅ Web: Goal detail — "Strava Auto-Sync" panel with link/unlink UI
+- ✅ Web: `GET_MY_STRAVA_CONNECTION`, `CONNECT_STRAVA`, `DISCONNECT_STRAVA` queries in `queries.ts`
+- ✅ Web: `VITE_STRAVA_CLIENT_ID` injected via Pulumi web infra
+- ✅ Web: Settings link added to Profile page
+- ✅ 🎉 **First Strava activity auto-logged to a goal**
+
 ## ✅ Recently Completed (2026-04-19)
+
 
 - ✅ Data: `createEvent` pipeline resolver — `createEventRecord` → `createCanonicalGoalForEvent` → `fetchEventResult`
 - ✅ Data: `updateEvent` pipeline resolver — `updateEventRecord` → `createCanonicalGoalForEvent` → `fetchEventResult`
