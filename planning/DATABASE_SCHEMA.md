@@ -1,521 +1,495 @@
-# The Goals Club - Database Schema
+# The Goals Club — Database Schema
+
+> Auto-generated from squashed migration `20260419000001-squashed-initial-schema.js`
+> Last updated: 2026-05-11
 
 ## Overview
 
-Complete MySQL database schema for The Goals Club platform. This schema supports:
+Complete MySQL database schema for The Goals Club platform (26 tables). Supports:
 - **Template goals** (public/joinable) and **custom goals** (personal)
 - **Collection goals** with tickable items (Wainwrights, National Trust sites)
-- **Recurring goals** with progress tracking (run 5km/week)
-- **Milestone goals** (complete by target date)
-- **Event goals** (linked to organised events)
+- **Recurring goals** with period tracking and streaks
+- **Event goals** linked to organised events and event series
+- **Strava integration** with OAuth tokens, activity dedup, and goal linking
+- **Social features** — follows, reactions, activity feed
+- **Badges** with auto-awarding criteria
+- **E-commerce** for physical badge merchandise
 
 ## Visual ERD
 
-For an interactive visual diagram, paste the contents of [`schema.dbml`](./schema.dbml) into [dbdiagram.io](https://dbdiagram.io).
-
----
-
-## Entity Relationship Diagram
-
-```mermaid
-erDiagram
-    %% Lookup Tables
-    goal_types ||--o{ goals : "type"
-    categories ||--o{ goals : "category"
-    
-    %% Core Flow
-    users ||--o{ goals : "creates"
-    goals ||--o{ goal_items : "contains"
-    users ||--o{ user_goals : "participates"
-    goals ||--o{ user_goals : "joined"
-    user_goals ||--o{ user_goal_activities : "logs"
-    goal_items ||--o{ user_goal_activities : "completed"
-    
-    %% Social
-    users ||--o{ user_follows : "follower"
-    users ||--o{ user_follows : "following"
-    users ||--o{ goal_follows : "watches"
-    goals ||--o{ goal_follows : "watched"
-    users ||--o{ reactions : "reacts"
-    user_goal_activities ||--o{ reactions : "receives"
-    reaction_types ||--o{ reactions : "type"
-    
-    %% Badges
-    badges ||--o{ user_badges : "earned"
-    users ||--o{ user_badges : "earns"
-    
-    %% Events
-    users ||--o{ organisers : "registers"
-    organisers ||--o{ events : "creates"
-    
-    %% E-commerce
-    users ||--o{ orders : "places"
-    orders ||--o{ order_items : "contains"
-    products ||--o{ order_items : "ordered"
-    badges ||--o{ products : "physical"
-
-    %% Table definitions
-    goal_types {
-        uuid id PK
-        string name
-        string slug UK
-        string description
-        int display_order
-    }
-    
-    users {
-        uuid id PK
-        string cognito_id UK
-        string email UK
-        string username UK
-        string display_name
-        boolean allow_followers
-        boolean suspended
-    }
-    
-    goals {
-        uuid id PK
-        uuid creator_id FK
-        string title
-        uuid category_id FK
-        uuid goal_type_id FK
-        enum visibility
-        boolean allow_joins
-        int total_items
-    }
-    
-    goal_items {
-        uuid id PK
-        uuid goal_id FK
-        string name
-        decimal location_lat
-        decimal location_lng
-        json metadata
-    }
-    
-    user_goals {
-        uuid id PK
-        uuid user_id FK
-        uuid goal_id FK
-        string custom_title
-        enum status
-        decimal current_progress
-        int items_completed
-    }
-    
-    user_goal_activities {
-        uuid id PK
-        uuid user_goal_id FK
-        enum activity_type
-        uuid goal_item_id FK
-        decimal value
-        boolean is_completion
-        json photos
-    }
-```
+Paste [`schema.dbml`](./schema.dbml) into [dbdiagram.io](https://dbdiagram.io) for an interactive diagram.
 
 ---
 
 ## Lookup Tables
 
 ### goal_types
-Goal type categories for consistent classification.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| name | VARCHAR(50) | Display name (Milestone, Recurring, Collection, Event) |
-| slug | VARCHAR(50) | URL-safe identifier |
-| description | VARCHAR(200) | User-facing description |
-| icon | VARCHAR(50) | Icon identifier |
-| display_order | INT | Sort order |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| name | VARCHAR(50) | NOT NULL |
+| slug | VARCHAR(50) | UNIQUE |
+| description | VARCHAR(200) | |
+| icon | VARCHAR(50) | |
+| display_order | INT | Default 0 |
 
-**Seed Data:**
-- `milestone` - Complete a single achievement or target
-- `recurring` - Repeat an activity daily, weekly, or monthly
-- `collection` - Tick off items from a list (peaks, sites, etc.)
-- `event` - Participate in an organised event
+**Seeds:** milestone, recurring, collection, event
 
 ### categories
-Activity categories for grouping goals.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| name | VARCHAR(100) | Display name |
-| slug | VARCHAR(100) | URL-safe identifier |
-| description | TEXT | Category description |
-| icon | VARCHAR(50) | Icon identifier |
-| color | VARCHAR(7) | Hex color code |
-| display_order | INT | Sort order |
-| active | BOOLEAN | Is category visible |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| name | VARCHAR(100) | NOT NULL |
+| slug | VARCHAR(100) | UNIQUE |
+| description | TEXT | |
+| icon | VARCHAR(50) | Emoji |
+| color | VARCHAR(7) | Hex |
+| display_order | INT | Default 0 |
+| active | BOOLEAN | Default true |
 
 ### reaction_types
-Available reaction types for encouragement.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| name | VARCHAR(50) | Reaction name (Cheer, High Five) |
-| emoji | VARCHAR(10) | Emoji character |
-| active | BOOLEAN | Is reaction available |
-| display_order | INT | Sort order |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| name | VARCHAR(50) | NOT NULL |
+| emoji | VARCHAR(10) | NOT NULL |
+| active | BOOLEAN | Default true |
+| display_order | INT | Default 0 |
 
 ---
 
 ## Core Tables
 
 ### users
-Profile data for registered users. Cognito handles authentication.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key (Cognito sub) |
-| cognito_id | VARCHAR(128) | Cognito user ID |
-| email | VARCHAR(255) | Email address (unique) |
-| username | VARCHAR(50) | Optional display handle (for @mentions) |
-| display_name | VARCHAR(100) | Display name |
-| bio | TEXT | User biography |
-| avatar_url | VARCHAR(500) | Profile image URL |
-| location_lat | DECIMAL(10,8) | Latitude |
-| location_lng | DECIMAL(11,8) | Longitude |
-| location_name | VARCHAR(200) | Location display name |
-| show_location | BOOLEAN | Show location on profile |
-| allow_followers | BOOLEAN | Allow others to follow |
-| follower_visibility | ENUM | Who can follow (friends, anyone) |
-| default_visibility | ENUM | Default goal visibility |
-| suspended | BOOLEAN | Admin-set suspension flag (default false) |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| cognito_id | VARCHAR(128) | UNIQUE |
+| email | VARCHAR(255) | UNIQUE |
+| username | VARCHAR(50) | UNIQUE, nullable |
+| display_name | VARCHAR(100) | |
+| bio | TEXT | |
+| avatar_url | VARCHAR(500) | |
+| location_lat | DECIMAL(10,8) | |
+| location_lng | DECIMAL(11,8) | |
+| location_name | VARCHAR(200) | |
+| show_location | BOOLEAN | Default false |
+| allow_followers | BOOLEAN | Default true |
+| follower_visibility | ENUM('friends','anyone') | Default 'friends' |
+| default_visibility | ENUM('PRIVATE','FRIENDS','PUBLIC') | Default 'PRIVATE' |
+| suspended | BOOLEAN | Default false, NOT NULL |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
 
 ### goals
-**Template goals** - public or community-created goals that users can join.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| creator_id | UUID | FK to users.id |
-| title | VARCHAR(200) | Goal title |
-| description | TEXT | Goal description |
-| category_id | UUID | FK to categories.id |
-| goal_type_id | UUID | FK to goal_types.id |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| creator_id | UUID | FK → users, nullable, CASCADE |
+| event_id | UUID | FK → events, nullable |
+| title | VARCHAR(200) | NOT NULL |
+| description | TEXT | |
+| category_id | UUID | FK → categories, SET NULL |
+| goal_type_id | UUID | FK → goal_types, NOT NULL, RESTRICT |
 | target_value | DECIMAL(10,2) | For recurring goals |
-| target_unit | VARCHAR(50) | Unit (km, times, hours) |
-| target_frequency | ENUM | daily, weekly, monthly, yearly, once |
+| target_unit | VARCHAR(50) | km, times, hours, etc. |
+| target_frequency | ENUM('daily','weekly','monthly','yearly','once') | |
 | target_date | DATE | For milestone/event goals |
-| visibility | ENUM | private, friends, public |
-| allow_joins | BOOLEAN | Can others join (default: true) |
-| total_items | INT | Cached item count for collections |
-| image_url | VARCHAR(500) | Goal cover image |
-| status | ENUM | active, archived |
+| visibility | ENUM('PUBLIC','PRIVATE','FRIENDS') | Default 'PUBLIC' |
+| allow_joins | BOOLEAN | Default true |
+| total_items | INT | Default 0, cached count |
+| image_url | VARCHAR(500) | |
+| status | ENUM('ACTIVE','COMPLETED','ARCHIVED','DRAFT') | Default 'ACTIVE' |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+**Indexes:** creator_id, event_id, visibility, status, category_id, goal_type_id, (allow_joins + visibility + status)
 
 ### goal_items
-Items within a collection goal (Wainwright peaks, National Trust sites).
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| goal_id | UUID | FK to goals.id |
-| name | VARCHAR(200) | Item name (e.g., "Helvellyn") |
-| description | TEXT | Item description |
-| location_lat | DECIMAL(10,8) | Latitude for map |
-| location_lng | DECIMAL(11,8) | Longitude for map |
-| location_name | VARCHAR(200) | Location display name |
-| external_id | VARCHAR(100) | External reference (Wainwright #) |
-| metadata | JSON | Flexible data (elevation, etc.) |
-| image_url | VARCHAR(500) | Item image |
-| display_order | INT | Sort order |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| goal_id | UUID | FK → goals, NOT NULL, CASCADE |
+| name | VARCHAR(200) | NOT NULL |
+| description | TEXT | |
+| location_lat | DECIMAL(10,8) | For map view |
+| location_lng | DECIMAL(11,8) | |
+| location_name | VARCHAR(200) | |
+| external_id | VARCHAR(100) | e.g. Wainwright # |
+| metadata | JSON | Elevation, region, etc. |
+| image_url | VARCHAR(500) | |
+| display_order | INT | Default 0 |
 
 ### user_goals
-User's participation in a goal - either **joined** (linked to goals) or **custom** (personal).
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | FK to users.id |
-| goal_id | UUID | FK to goals.id (NULL for custom) |
-| **Custom Goal Fields** (when goal_id is NULL): | | |
-| custom_title | VARCHAR(200) | Personal goal title |
-| custom_description | TEXT | Personal goal description |
-| custom_category_id | UUID | FK to categories.id |
-| custom_goal_type_id | UUID | FK to goal_types.id |
-| custom_target_value | DECIMAL(10,2) | Personal target |
-| custom_target_unit | VARCHAR(50) | Personal unit |
-| custom_target_frequency | ENUM | Personal frequency |
-| custom_target_date | DATE | Personal target date |
-| **Tracking Fields**: | | |
-| visibility | ENUM | private, friends, public |
-| status | ENUM | active, completed, paused, abandoned |
-| current_progress | DECIMAL(10,2) | Cached progress value |
-| items_completed | INT | Cached completed items count |
-| joined_at | TIMESTAMP | When user joined/created |
-| completed_at | TIMESTAMP | When goal was completed |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| goal_id | UUID | FK → goals, CASCADE, nullable |
+| custom_title | VARCHAR(200) | For custom/personal goals |
+| custom_description | TEXT | |
+| custom_category_id | UUID | FK → categories |
+| custom_goal_type_id | UUID | FK → goal_types |
+| custom_target_value | DECIMAL(10,2) | |
+| custom_target_unit | VARCHAR(50) | |
+| custom_target_frequency | ENUM('daily','weekly','monthly','yearly','once') | |
+| custom_target_date | DATE | |
+| visibility | ENUM('PUBLIC','PRIVATE','FRIENDS') | Default 'PRIVATE' |
+| status | ENUM('ACTIVE','COMPLETED','PAUSED','ABANDONED') | Default 'ACTIVE' |
+| current_progress | DECIMAL(10,2) | Default 0 |
+| items_completed | INT | Default 0 |
+| current_streak | INT | Default 0, NOT NULL |
+| longest_streak | INT | Default 0, NOT NULL |
+| last_period_completed_at | DATETIME | nullable |
+| periods_completed | INT | Default 0, NOT NULL |
+| joined_at | DATETIME | |
+| completed_at | DATETIME | nullable |
+| updated_at | DATETIME | |
 
-**Key Design Decision:** 
-- `goal_id IS NOT NULL` = User joined a template goal
-- `goal_id IS NULL` = User created a custom/personal goal
+**Unique constraint:** (user_id, goal_id)
+
+**Design:** `goal_id IS NOT NULL` = joined template goal; `goal_id IS NULL` = custom/personal goal
 
 ### user_goal_activities
-Activity logs for progress/visits/completions.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| user_goal_id | UUID | FK to user_goals.id |
-| activity_type | ENUM | item_completion, progress_log, visit |
-| goal_item_id | UUID | FK to goal_items.id (for collections) |
-| value | DECIMAL(10,2) | Progress value (for recurring) |
-| unit | VARCHAR(50) | Value unit |
-| activity_date | DATE | When activity occurred |
-| is_completion | BOOLEAN | Marks item as ticked off |
-| notes | TEXT | Activity notes |
-| location_lat | DECIMAL(10,8) | Activity location |
-| location_lng | DECIMAL(11,8) | Activity location |
-| location_name | VARCHAR(200) | Location display name |
-| photos | JSON | Array of photo URLs |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_goal_id | UUID | FK → user_goals, NOT NULL, CASCADE |
+| activity_type | ENUM('ITEM_COMPLETION','PROGRESS_LOG','VISIT') | NOT NULL |
+| goal_item_id | UUID | FK → goal_items, SET NULL |
+| strava_activity_id | UUID | FK → strava_activities, SET NULL |
+| value | DECIMAL(10,2) | Progress amount |
+| unit | VARCHAR(50) | |
+| activity_date | DATE | NOT NULL |
+| is_completion | BOOLEAN | Default false |
+| notes | TEXT | |
+| location_lat | DECIMAL(10,8) | |
+| location_lng | DECIMAL(11,8) | |
+| location_name | VARCHAR(200) | |
+| photos | JSON | Array of URLs |
+| created_at | DATETIME | |
 
-**Activity Types:**
-- `item_completion` - Ticking off a collection item (requires goal_item_id, is_completion=true)
-- `progress_log` - Logging progress (uses value, unit)
-- `visit` - Recording a visit without completion (for repeat visits to NT sites)
+### user_goal_periods
+Tracks recurring goal progress per time period. Used for streak calculation.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_goal_id | UUID | FK → user_goals, NOT NULL, CASCADE |
+| period_start | DATE | NOT NULL |
+| period_end | DATE | NOT NULL |
+| period_type | ENUM('DAILY','WEEKLY','MONTHLY') | NOT NULL |
+| target_value | DECIMAL(10,2) | NOT NULL |
+| achieved_value | DECIMAL(10,2) | Default 0, NOT NULL |
+| target_met | BOOLEAN | Default false, NOT NULL |
+| consecutive_periods_met | INT | Default 0, NOT NULL |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+**Unique constraint:** (user_goal_id, period_start, period_type)
 
 ---
 
 ## Social Tables
 
 ### user_follows
-User-to-user following relationships.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| follower_id | UUID | FK to users.id (who follows) |
-| following_id | UUID | FK to users.id (who is followed) |
-| created_at | TIMESTAMP | When followed |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| follower_id | UUID | FK → users, NOT NULL, CASCADE |
+| following_id | UUID | FK → users, NOT NULL, CASCADE |
+| created_at | DATETIME | |
 
 **Unique constraint:** (follower_id, following_id)
 
 ### goal_follows
-Following a goal without joining (spectator mode).
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | FK to users.id |
-| goal_id | UUID | FK to goals.id |
-| created_at | TIMESTAMP | When followed |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| goal_id | UUID | FK → goals, NOT NULL, CASCADE |
+| created_at | DATETIME | |
+
+**Unique constraint:** (user_id, goal_id)
 
 ### reactions
-Encouragement reactions on activities.
+One reaction per user per activity. Changing emoji replaces the previous reaction.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | FK to users.id (who reacted) |
-| activity_id | UUID | FK to user_goal_activities.id |
-| reaction_type_id | UUID | FK to reaction_types.id |
-| created_at | TIMESTAMP | When reacted |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| activity_id | UUID | FK → user_goal_activities, NOT NULL, CASCADE |
+| reaction_type_id | UUID | FK → reaction_types, NOT NULL, CASCADE |
+| created_at | DATETIME | |
+
+**Unique constraint:** (user_id, activity_id)
 
 ---
 
 ## Badges & Achievements
 
 ### badges
-Available badges for users to earn.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| name | VARCHAR(100) | Badge name |
-| description | TEXT | How to earn |
-| image_url | VARCHAR(500) | Badge image |
-| badge_type | ENUM | system, goal, event, category |
-| category_id | UUID | FK to categories.id |
-| goal_id | UUID | FK to goals.id (for goal-specific) |
-| criteria | JSON | Earning criteria definition |
-| is_limited_edition | BOOLEAN | Limited availability |
-| active | BOOLEAN | Is badge available |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| name | VARCHAR(100) | NOT NULL |
+| description | TEXT | |
+| image_url | VARCHAR(500) | |
+| badge_type | ENUM('system','goal','event','category','special','prestige') | NOT NULL |
+| category_id | UUID | FK → categories, SET NULL |
+| goal_id | UUID | FK → goals, SET NULL |
+| criteria | JSON | Auto-award criteria definition |
+| is_limited_edition | BOOLEAN | Default false |
+| active | BOOLEAN | Default true |
 
 ### user_badges
-Badges earned by users.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | FK to users.id |
-| badge_id | UUID | FK to badges.id |
-| user_goal_id | UUID | FK to user_goals.id (if earned via goal) |
-| earned_at | TIMESTAMP | When earned |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| badge_id | UUID | FK → badges, NOT NULL, CASCADE |
+| user_goal_id | UUID | FK → user_goals, SET NULL |
+| earned_at | DATETIME | |
+
+**Unique constraint:** (user_id, badge_id)
 
 ---
 
 ## Events & Organisers
 
 ### organisers
-Verified event organisers.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | FK to users.id |
-| organisation_name | VARCHAR(200) | Organisation name |
-| description | TEXT | About the organiser |
-| website_url | VARCHAR(500) | Website |
-| logo_url | VARCHAR(500) | Logo image |
-| status | ENUM | pending, approved, rejected, suspended, trusted |
-| can_self_publish | BOOLEAN | Trusted to publish without review |
-| approved_at | TIMESTAMP | When approved |
-| approved_by | UUID | Admin who approved |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, nullable, SET NULL |
+| name | VARCHAR(200) | NOT NULL |
+| slug | VARCHAR(100) | UNIQUE, nullable |
+| description | TEXT | |
+| website_url | VARCHAR(500) | |
+| logo_url | VARCHAR(500) | |
+| contact_email | VARCHAR(255) | nullable |
+| status | ENUM('pending','approved','rejected','suspended','trusted') | Default 'pending' |
+| is_claimed | BOOLEAN | Default false, NOT NULL |
+| can_self_publish | BOOLEAN | Default false |
+| approved_at | DATETIME | |
+| approved_by | UUID | |
+| rejection_reason | TEXT | |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+### event_series
+Groups related events (e.g. "Great North Run" series under Great Run Company).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| organiser_id | UUID | FK → organisers, NOT NULL, CASCADE |
+| name | VARCHAR(200) | NOT NULL |
+| slug | VARCHAR(100) | UNIQUE, NOT NULL |
+| description | TEXT | |
+| category_id | UUID | FK → categories, SET NULL |
+| image_url | VARCHAR(500) | |
+| website_url | VARCHAR(500) | |
+| external_url | VARCHAR(500) | |
+| is_recurring | BOOLEAN | Default false |
+| recurrence_pattern | VARCHAR(50) | e.g. "annual" |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
 
 ### events
-Organised events (races, challenges, etc.).
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| organiser_id | UUID | FK to organisers.id |
-| name | VARCHAR(200) | Event name |
-| description | TEXT | Event description |
-| category_id | UUID | FK to categories.id |
-| event_date | DATE | Start date |
-| event_end_date | DATE | End date (multi-day) |
-| location_lat | DECIMAL(10,8) | Event location |
-| location_lng | DECIMAL(11,8) | Event location |
-| location_name | VARCHAR(200) | Location display name |
-| external_url | VARCHAR(500) | Registration link |
-| image_url | VARCHAR(500) | Event image |
-| status | ENUM | draft, pending, approved, rejected, archived |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| organiser_id | UUID | FK → organisers, NOT NULL, CASCADE |
+| goal_id | UUID | FK → goals, nullable, SET NULL |
+| series_id | UUID | FK → event_series, nullable, SET NULL |
+| name | VARCHAR(200) | NOT NULL |
+| slug | VARCHAR(200) | nullable |
+| description | TEXT | |
+| category_id | UUID | FK → categories, SET NULL |
+| event_date | DATE | |
+| event_end_date | DATE | |
+| location_lat | DECIMAL(10,8) | |
+| location_lng | DECIMAL(11,8) | |
+| location_name | VARCHAR(200) | |
+| location_address | VARCHAR(500) | |
+| distance_km | DECIMAL(10,2) | nullable |
+| event_type | VARCHAR(50) | nullable |
+| external_url | VARCHAR(500) | |
+| website_url | VARCHAR(500) | |
+| registration_url | VARCHAR(500) | |
+| registration_close_date | DATE | |
+| max_participants | INT | nullable |
+| price_pence | INT | nullable |
+| image_url | VARCHAR(500) | |
+| status | ENUM('draft','pending','approved','rejected','archived') | Default 'pending' |
+| rejection_reason | TEXT | |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+**Note:** When an event is approved, a canonical goal is auto-created and linked via `goal_id`. Users "join" the event by joining this goal.
+
+### user_event_interests
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| event_id | UUID | FK → events, NOT NULL, CASCADE |
+| status | ENUM('interested','committed') | Default 'interested' |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+**Unique constraint:** (user_id, event_id)
+
+---
+
+## Strava Integration
+
+### strava_tokens
+OAuth tokens for connected Strava accounts. One per user.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, UNIQUE, NOT NULL, CASCADE |
+| strava_athlete_id | BIGINT | NOT NULL |
+| access_token | VARCHAR(255) | NOT NULL |
+| refresh_token | VARCHAR(255) | NOT NULL |
+| expires_at | INT | Unix timestamp, NOT NULL |
+| scope | VARCHAR(255) | |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+**Indexes:** user_id (unique), strava_athlete_id, expires_at
+
+### strava_goal_links
+Maps Strava activity types to user goals for auto-sync.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| user_goal_id | UUID | FK → user_goals, NOT NULL, CASCADE |
+| strava_activity_type | VARCHAR(50) | e.g. "Run", "Ride", NOT NULL |
+| created_at | DATETIME | |
+
+**Unique constraint:** (user_goal_id, strava_activity_type)
+
+### strava_activities
+Dedup table — prevents processing the same Strava activity twice.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| strava_activity_id | BIGINT | UNIQUE, NOT NULL |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| strava_activity_type | VARCHAR(50) | |
+| distance_meters | FLOAT | |
+| moving_time_seconds | INT | |
+| start_date | DATETIME | |
+| name | VARCHAR(255) | |
+| start_lat | DECIMAL(10,8) | GPS latitude of activity start |
+| start_lng | DECIMAL(11,8) | GPS longitude of activity start |
+| route_polyline | TEXT | Google Encoded Polyline from Strava |
+| processed_at | DATETIME | |
+| created_at | DATETIME | |
 
 ---
 
 ## E-Commerce Tables
 
 ### products
-Physical badges, patches, pins for sale.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| name | VARCHAR(200) | Product name |
-| description | TEXT | Product description |
-| price_pence | INT | Price in pence |
-| image_url | VARCHAR(500) | Product image |
-| badge_id | UUID | FK to badges.id (linked badge) |
-| product_type | ENUM | badge, patch, pin, other |
-| stock_quantity | INT | Available stock |
-| stock_status | ENUM | in_stock, low_stock, out_of_stock, pre_order |
-| is_limited_edition | BOOLEAN | Limited availability |
-| active | BOOLEAN | Available for sale |
-| stripe_product_id | VARCHAR(100) | Stripe product ID |
-| stripe_price_id | VARCHAR(100) | Stripe price ID |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| name | VARCHAR(200) | NOT NULL |
+| description | TEXT | |
+| price_pence | INT | NOT NULL |
+| image_url | VARCHAR(500) | |
+| badge_id | UUID | FK → badges, SET NULL |
+| product_type | ENUM('badge','patch','pin','other') | Default 'badge' |
+| stock_quantity | INT | Default 0 |
+| stock_status | ENUM('in_stock','low_stock','out_of_stock','pre_order') | Default 'in_stock' |
+| is_limited_edition | BOOLEAN | Default false |
+| active | BOOLEAN | Default true |
+| stripe_product_id | VARCHAR(100) | |
+| stripe_price_id | VARCHAR(100) | |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
 
 ### orders
-Customer orders.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | FK to users.id |
-| order_number | VARCHAR(20) | Human-readable order # |
-| status | ENUM | pending, paid, processing, shipped, delivered, cancelled, refunded |
-| subtotal_pence | INT | Subtotal in pence |
-| shipping_pence | INT | Shipping cost |
-| total_pence | INT | Total in pence |
-| currency | VARCHAR(3) | Currency code (GBP) |
-| stripe_payment_intent_id | VARCHAR(200) | Stripe payment ID |
-| shipping_* | Various | Shipping address fields |
-| tracking_number | VARCHAR(100) | Shipment tracking |
-| tracking_url | VARCHAR(500) | Tracking URL |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| status | ENUM('pending','paid','processing','shipped','delivered','cancelled','refunded') | Default 'pending' |
+| total_pence | INT | NOT NULL |
+| stripe_payment_intent_id | VARCHAR(100) | |
+| shipping_name | VARCHAR(200) | |
+| shipping_address_line1 | VARCHAR(200) | |
+| shipping_address_line2 | VARCHAR(200) | |
+| shipping_city | VARCHAR(100) | |
+| shipping_postcode | VARCHAR(20) | |
+| shipping_country | VARCHAR(2) | |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
 
 ### order_items
-Line items in an order.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| order_id | UUID | FK to orders.id |
-| product_id | UUID | FK to products.id |
-| quantity | INT | Quantity ordered |
-| price_pence | INT | Price at time of order |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| order_id | UUID | FK → orders, NOT NULL, CASCADE |
+| product_id | UUID | FK → products, NOT NULL, RESTRICT |
+| quantity | INT | Default 1, NOT NULL |
+| unit_price_pence | INT | NOT NULL |
+| created_at | DATETIME | |
 
 ---
 
 ## System Tables
 
 ### notifications
-User notifications.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | FK to users.id |
-| type | VARCHAR(50) | Notification type |
-| title | VARCHAR(200) | Notification title |
-| message | TEXT | Notification body |
-| data | JSON | Additional data |
-| read_at | TIMESTAMP | When read (NULL = unread) |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK → users, NOT NULL, CASCADE |
+| type | VARCHAR(50) | NOT NULL |
+| title | VARCHAR(200) | |
+| message | TEXT | |
+| data | JSON | |
+| read_at | DATETIME | NULL = unread |
+| created_at | DATETIME | |
 
 ### audit_log
-Admin action audit trail.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| admin_user_id | UUID | Who performed action |
-| action | VARCHAR(100) | Action type |
-| entity_type | VARCHAR(50) | Affected table |
-| entity_id | UUID | Affected record |
-| old_values | JSON | Previous values |
-| new_values | JSON | New values |
-| ip_address | VARCHAR(45) | IP address |
-| user_agent | TEXT | Browser/client info |
-
----
-
-## Example Use Cases
-
-### 1. Summit All Wainwrights (Collection Goal)
-
-```sql
--- Template goal
-INSERT INTO goals (id, creator_id, title, goal_type_id, category_id, visibility, allow_joins)
-VALUES ('wainwright-goal-uuid', 'admin-uuid', 'Summit All 214 Wainwrights', 
-        'collection-type-uuid', 'outdoor-challenges-uuid', 'public', true);
-
--- Goal items (214 peaks)
-INSERT INTO goal_items (goal_id, name, location_lat, location_lng, metadata)
-VALUES ('wainwright-goal-uuid', 'Helvellyn', 54.5272, -3.0165, '{"elevation": 950, "book": 1}');
--- ... 213 more peaks
-
--- User joins goal
-INSERT INTO user_goals (user_id, goal_id, status)
-VALUES ('user-uuid', 'wainwright-goal-uuid', 'active');
-
--- User summits Helvellyn
-INSERT INTO user_goal_activities (user_goal_id, activity_type, goal_item_id, is_completion, activity_date, notes, photos)
-VALUES ('user-goal-uuid', 'item_completion', 'helvellyn-item-uuid', true, '2026-03-01', 
-        'Amazing views!', '["https://s3.../photo1.jpg"]');
-```
-
-### 2. Run 5km Every Week (Recurring Goal - Custom)
-
-```sql
--- Custom personal goal (no template)
-INSERT INTO user_goals (user_id, custom_title, custom_goal_type_id, custom_target_value, 
-                        custom_target_unit, custom_target_frequency, visibility)
-VALUES ('user-uuid', 'Run 5km weekly', 'recurring-type-uuid', 5.0, 'km', 'weekly', 'private');
-
--- Log a run
-INSERT INTO user_goal_activities (user_goal_id, activity_type, value, unit, activity_date, notes)
-VALUES ('user-goal-uuid', 'progress_log', 5.2, 'km', '2026-03-01', 'Morning park run');
-```
-
-### 3. Visit National Trust Sites (Collection with Repeat Visits)
-
-```sql
--- User visits same NT site multiple times
-INSERT INTO user_goal_activities (user_goal_id, activity_type, goal_item_id, is_completion, activity_date)
-VALUES ('user-goal-uuid', 'item_completion', 'cragside-uuid', true, '2026-01-15'); -- First visit, ticks off
-
-INSERT INTO user_goal_activities (user_goal_id, activity_type, goal_item_id, is_completion, activity_date)
-VALUES ('user-goal-uuid', 'visit', 'cragside-uuid', false, '2026-03-01'); -- Return visit
-```
-
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| admin_user_id | UUID | |
+| action | VARCHAR(100) | NOT NULL |
+| resource_type | VARCHAR(50) | |
+| resource_id | UUID | |
+| old_values | JSON | |
+| new_values | JSON | |
+| ip_address | VARCHAR(45) | |
+| created_at | DATETIME | |

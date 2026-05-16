@@ -1,6 +1,6 @@
 # AppSync JavaScript Runtime Guidelines
 
-**Last Updated:** March 8, 2026
+**Last Updated:** May 11, 2026
 
 This document covers the constraints and best practices for writing AppSync resolvers using the JavaScript (APPSYNC_JS) runtime with Aurora MySQL / RDS Data Source.
 
@@ -84,8 +84,10 @@ The AppSync JS runtime is **NOT** Node.js. It's a subset of JavaScript with sign
 | `for...in` loops | `Object.keys().forEach()` |
 | `while` loops | Use `indexOf()` to find delimiters, or recursive functions |
 | `++` / `--` operators | `+= 1` / `-= 1` |
-| Regex literals `/pattern/` | `new RegExp()` or string methods |
+| Regex literals `/pattern/` | `new RegExp()` or string methods (`split()`, `indexOf()`, `replace()`) |
 | `new Date()` | String comparison or `util.time` functions |
+| `Math.cos()` / `Math.sqrt()` / `Math.PI` | Pre-computed constants or SQL-side calculation |
+| `.sort()` with callbacks | Not supported — move sorting to frontend or SQL `ORDER BY` |
 | `JSON.parse()` | Manual string parsing with `indexOf()`/`substring()` |
 | `String(value)` | `"" + value` (concatenation to coerce) |
 | `parseInt()` / `parseFloat()` | `+str` or `str * 1` (unary plus or multiply) |
@@ -97,6 +99,7 @@ The AppSync JS runtime is **NOT** Node.js. It's a subset of JavaScript with sign
 | Spread in function calls | `fn(...args)` — works in most cases |
 | Dynamic imports | Not supported |
 | `createMySQLStatement` with 3+ args | Use pipeline resolver with multiple functions |
+| `util.time.parseFormattedToEpochMilliSeconds()` | Unreliable — avoid. Use string comparison or SQL date functions |
 
 ### What DOES Work
 
@@ -607,6 +610,28 @@ while (i < str.length) {
 // CORRECT - Use indexOf to find delimiters
 const commaIdx = str.indexOf(',');
 const result = commaIdx !== -1 ? str.substring(0, commaIdx) : str;
+```
+
+### ❌ Using .sort() with callbacks
+```javascript
+// WRONG - Both arrow functions and function expressions fail in .sort()
+items.sort((a, b) => b.score - a.score);
+items.sort(function(a, b) { return b.score - a.score; });
+
+// CORRECT - Move sorting to frontend or use SQL ORDER BY
+// In resolver: ORDER BY score DESC
+// In frontend: data.sort((a, b) => b.score - a.score);
+```
+
+### ❌ Using Math.cos / Math.sqrt / Math.PI
+```javascript
+// WRONG - Trig and advanced Math functions not available
+const distance = Math.sqrt(dx * dx + dy * dy);
+const lngFactor = Math.cos(lat * Math.PI / 180);
+
+// CORRECT - Use pre-computed constants or compare squared values
+const distSq = dx * dx + dy * dy; // Compare squared distances instead
+const lngFactor = 0.6; // Fixed factor, accurate enough for UK (50-58°N)
 ```
 
 ### ❌ Using JSON.parse()

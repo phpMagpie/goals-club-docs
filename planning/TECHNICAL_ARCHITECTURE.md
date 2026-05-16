@@ -1,269 +1,129 @@
-# The Goals Club - Technical Architecture
+# The Goals Club — Technical Architecture
+
+> Last updated: 2026-05-16
 
 ## Overview
-This document outlines the technical architecture for The Goals Club platform, aligned with the proven Dataworks infrastructure patterns.
+
+The Goals Club is a sports goal tracking platform built on AWS serverless infrastructure, following patterns proven in the Dataworks platform.
 
 ---
 
-## Architecture Summary
-
-Based on analysis of the Dataworks repos, The Goals Club will follow the same battle-tested patterns:
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           CloudFront CDN                                │
-│                    (thegoalsclub.co.uk + subdomains)                    │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             CloudFront CDN                                  │
+│              (thegoalsclub.co.uk / dev.thegoalsclub.co.uk)                  │
+└─────────────────────────────────────────────────────────────────────────────┘
                                     │
               ┌─────────────────────┼─────────────────────┐
               ▼                     ▼                     ▼
     ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
     │   S3 + CDN       │  │   S3 + CDN       │  │    AppSync       │
     │   (Web App)      │  │   (Admin App)    │  │  GraphQL API     │
-    │   Public Users   │  │   Refine+Mantine │  │  + Cognito Auth  │
+    │   React+Mantine  │  │  Refine+Mantine  │  │  + Cognito Auth  │
     └──────────────────┘  └──────────────────┘  └──────────────────┘
                                                          │
-                                    ┌────────────────────┼────────────────────┐
-                                    ▼                    ▼                    ▼
-                          ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-                          │  Aurora MySQL   │  │       S3        │  │      SES        │
-                          │  Serverless v2  │  │  (Images/Files) │  │    (Email)      │
-                          └─────────────────┘  └─────────────────┘  └─────────────────┘
+                              ┌───────────────────────────┼───────────────────┐
+                              ▼                           ▼                   ▼
+                    ┌─────────────────┐         ┌─────────────────┐  ┌──────────────┐
+                    │  Aurora MySQL   │         │       S3        │  │     SES      │
+                    │  Serverless v2  │         │  (Images/Files) │  │   (Email)    │
+                    └─────────────────┘         └─────────────────┘  └──────────────┘
+
+                          Strava Integration
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  Strava API ──webhook──▶ API Gateway ──▶ Receiver Lambda       │
+    │                              (POST /strava)    │               │
+    │                                                ▼               │
+    │                                         ┌────────────┐        │
+    │                                         │    SQS     │        │
+    │                                         │  + DLQ     │        │
+    │                                         └─────┬──────┘        │
+    │                                               ▼               │
+    │                                     Processor Lambda           │
+    │                                     (fetch activity,           │
+    │                                      log to goals)             │
+    │                                                                │
+    │  EventBridge (every 5h) ──▶ Token Refresh Lambda               │
+    │  OAuth Lambda (connectStrava mutation) ──▶ RDS Data API        │
+    └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Decisions Confirmed ✅
+## Technology Choices
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| **Database** | Aurora Serverless v2 | Scale to zero, cost effective pre-launch |
-| **API** | AppSync (GraphQL) | Real-time subscriptions for activity feeds |
-| **Authentication** | Cognito | AWS-native, free tier, proven in Dataworks |
-| **Domain** | thegoalsclub.co.uk | Owned and ready |
-| **Repository Structure** | Multi-repo | Matches Dataworks pattern |
-| **Pulumi State** | S3 backend | Cost-effective, proven pattern |
-| **Package Manager** | Bun | Consistent with Dataworks |
-| **Payments** | Stripe | Industry standard |
-| **Email** | AWS SES | Cost-effective, AWS-native |
+| **Database** | Aurora Serverless v2 MySQL | Scale to zero, cost effective |
+| **API** | AppSync (GraphQL) | Real-time subscriptions, managed resolvers |
+| **Authentication** | Cognito | AWS-native, free tier, per-stack isolation |
+| **Frontends** | React 18 + Vite + Mantine 8 | Consistent across web and admin |
+| **Admin framework** | Refine 4 | CRUD generation, data provider hooks |
+| **Domain** | thegoalsclub.co.uk | Route 53, wildcard SSL via ACM |
+| **IaC** | Pulumi (TypeScript) | S3 state backend, stack-per-environment |
+| **Package manager** | Bun | Consistent with Dataworks |
+| **Payments** | Stripe | Industry standard (future) |
+| **Email** | AWS SES | DKIM configured, welcome template |
+| **Fitness sync** | Strava API | OAuth + webhook, 999 athletes approved |
 
 ---
 
-## Repository Structure (Aligned with Dataworks)
-
-Based on the Dataworks pattern (Data/Console/SDK → Data/Admin/Web/Shared):
+## Repository Structure
 
 ```
-github.com/your-org/
-│
-├── goals-club-data/              # API + Infrastructure (like Dataworks-Data)
-│   ├── packages/
-│   │   ├── infra/                # Pulumi infrastructure
-│   │   │   ├── index.ts          # Main exports + env file generation
-│   │   │   ├── modules/          # Infrastructure modules
-│   │   │   │   ├── appsync-rds/  # AppSync + Aurora config
-│   │   │   │   │   ├── appsync-rds.ts
-│   │   │   │   │   ├── resolvers/
-│   │   │   │   │   └── schema.graphql
-│   │   │   │   ├── cognito/      # Auth setup
-│   │   │   │   ├── constants.ts
-│   │   │   │   ├── databases/
-│   │   │   │   ├── s3.ts
-│   │   │   │   ├── ses.ts
-│   │   │   │   └── shared.ts     # Stack references
-│   │   │   ├── utils/
-│   │   │   ├── Pulumi.yaml
-│   │   │   ├── Pulumi.dev.yaml
-│   │   │   └── Pulumi.prod.yaml
-│   │   ├── shared/               # Shared within this repo
-│   │   │   ├── interfaces/
-│   │   │   ├── helpers/
-│   │   │   └── services/
-│   │   └── tools/
-│   │       └── pulumi-docker/    # Docker image for Pulumi runs
-│   ├── scripts/
-│   ├── test/
-│   │   └── bruno/                # API tests
-│   ├── Makefile                  # Build/deploy orchestration
-│   ├── setup.ts                  # Config loader from .env/.secrets
-│   ├── package.json
-│   └── tsconfig.json
-│
-├── goals-club-admin/             # Admin Panel (like Dataworks-Console)
-│   ├── packages/
-│   │   ├── infra/                # S3 + CloudFront deployment
-│   │   │   ├── index.ts
-│   │   │   ├── modules/
-│   │   │   │   ├── admin-frontend.ts
-│   │   │   │   ├── constants.ts
-│   │   │   │   └── shared.ts     # Stack refs to goals-club-data
-│   │   │   ├── Pulumi.yaml
-│   │   │   └── Pulumi.dev.yaml
-│   │   └── ui/                   # React + Refine + Mantine
-│   │       ├── src/
-│   │       │   ├── App.tsx
-│   │       │   ├── components/
-│   │       │   │   └── custom/   # Custom Mantine wrappers
-│   │       │   ├── pages/
-│   │       │   ├── providers/
-│   │       │   ├── hooks/
-│   │       │   └── themes/
-│   │       ├── package.json
-│   │       └── vite.config.ts
-│   ├── Makefile
-│   └── package.json
-│
-├── goals-club-web/               # Public Frontend (like Dataworks-Visual)
-│   ├── packages/
-│   │   ├── infra/
-│   │   │   ├── index.ts
-│   │   │   ├── modules/
-│   │   │   │   ├── web-frontend.ts
-│   │   │   │   └── shared.ts
-│   │   │   └── Pulumi.yaml
-│   │   └── ui/
-│   │       ├── src/
-│   │       │   ├── App.tsx
-│   │       │   ├── components/
-│   │       │   ├── pages/
-│   │       │   └── hooks/
-│   │       ├── package.json
-│   │       └── vite.config.ts
-│   ├── Makefile
-│   └── package.json
-│
-└── goals-club-shared/            # Shared SDK (like Dataworks-SDK)
-    ├── src/
-    │   ├── index.ts              # Main exports
-    │   ├── types/                # TypeScript interfaces
-    │   │   ├── user.ts
-    │   │   ├── goal.ts
-    │   │   ├── activity.ts
-    │   │   └── index.ts
-    │   ├── graphql/              # Generated from schema
-    │   ├── helpers/
-    │   │   └── writeEnvFiles.ts  # From Dataworks-SDK pattern
-    │   ├── constants/
-    │   │   ├── categories.ts
-    │   │   ├── reactions.ts
-    │   │   └── index.ts
-    │   ├── validation/           # Zod schemas
-    │   │   ├── goal.ts
-    │   │   └── activity.ts
-    │   └── utils/
-    ├── scripts/
-    │   └── publish.js
-    ├── package.json
-    └── tsconfig.json
-```
+goals-club-data/                  # Backend — API, database, Strava integration
+├── packages/
+│   ├── database/                 # Sequelize migrations + seeders
+│   │   ├── migrations/           # Squashed schema + incremental
+│   │   ├── seeders/              # Production seed data
+│   │   └── seeders/test/         # Test data (separate tracking)
+│   ├── infra/                    # Pulumi infrastructure
+│   │   ├── modules/
+│   │   │   ├── appsync-rds/      # AppSync + Aurora + resolvers + schema
+│   │   │   ├── cognito/          # User pool + app clients
+│   │   │   ├── databases/        # Aurora cluster + VPC
+│   │   │   ├── lambda-strava-*   # 4 Strava Lambda modules
+│   │   │   ├── lambda-migrations # DB migration Lambda
+│   │   │   ├── ses.ts            # Email
+│   │   │   └── s3.ts             # Storage
+│   │   └── lambdas/
+│   │       ├── strava-oauth/     # OAuth token exchange
+│   │       ├── strava-webhook/   # Receiver (enqueue to SQS)
+│   │       ├── strava-webhook-processor/  # SQS consumer
+│   │       └── strava-token-refresh/      # Scheduled refresh
+│   └── tools/
+├── test/bruno/                   # Bruno API tests
+├── Makefile
+└── setup.ts
 
----
+goals-club-web/                   # Public web app
+├── packages/
+│   ├── infra/                    # S3 + CloudFront + Route 53
+│   └── ui/                       # React SPA
+│       └── src/
+│           ├── pages/            # Dashboard, Explore, Goals, Events, etc.
+│           ├── hooks/            # useCurrentUser, usePublicGoals, etc.
+│           ├── components/       # UI components
+│           ├── providers/        # Auth provider
+│           └── lib/              # GraphQL queries, helpers
+├── Makefile
+└── setup.ts
 
-## Key Patterns from Dataworks
+goals-club-admin/                 # Admin panel
+├── packages/
+│   ├── infra/                    # S3 + CloudFront
+│   └── ui/                       # Refine + Mantine
+│       └── src/pages/            # CRUD for all models
+├── Makefile
+└── setup.ts
 
-### 1. Makefile Orchestration
-
-Each repo has a Makefile with consistent targets:
-
-```makefile
-# Common variables
-PULUMI_S3_ACCESS_TOKEN := "dummy-token-for-s3-backend"
-CURRENT_VERSION_FILE := packages/tools/pulumi-docker/.currentversion
-PULUMI_DOCKER_IMAGE := your-ecr/pulumi-multiarch:$(IMAGE_VERSION)
-
-# Common targets
-default: root build
-
-deploy: default
-    @$(MAKE) initialise_stack
-    $(call check_credentials,Deploying to,up --yes --skip-preview)
-    @$(MAKE) backup_stack
-
-preview: default
-    $(call check_credentials,Previewing changes to,preview)
-
-down:
-    $(call check_credentials,Downing,down --yes --skip-preview)
-
-backup_stack:
-    @cd packages/infra && pulumi stack export --file stacks_backup/stack-$$(pulumi stack --show-name).json.bak
-
-tests:
-    bun run test
-    bun run test:bruno
-
-clean:
-    find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +
-```
-
-### 2. Pulumi Docker Container
-
-Pulumi runs inside a versioned Docker container:
-- Stored in ECR with version tags
-- Ensures consistent environment
-- Mounts project, passes credentials
-- Works identically locally and in CI
-
-### 3. S3 State Backend
-
-```bash
-# Login flow in Makefile:
-# 1. Login to Pulumi Cloud to get state bucket URL
-pulumi login https://api.pulumi.com
-state_bucket=$(pulumi stack output stateBackendUrl --stack org/infra-state/stack)
-
-# 2. Switch to S3 backend
-export PULUMI_BACKEND_URL="$state_bucket&awssdk=v2"
-pulumi login
-
-# 3. Use passphrase for encryption
-export PULUMI_CONFIG_PASSPHRASE=$(op read "op://Vault/item/field")
-```
-
-### 4. Stack References (Cross-repo)
-
-```typescript
-// In goals-club-admin/packages/infra/modules/shared.ts
-import * as pulumi from "@pulumi/pulumi";
-import { DATA_INFRA_S3 } from "./constants";
-
-const dataEngine = new pulumi.StackReference(DATA_INFRA_S3);
-
-export const cognitoUserPoolId = dataEngine.getOutput("cognitoUserPoolIdOutput");
-export const appSyncApiEndpoint = dataEngine.getOutput("graphqlEndpointOutput");
-export const cognitoDomain = dataEngine.getOutput("cognitoDomainOutput");
-```
-
-### 5. Environment File Generation
-
-```typescript
-// In infra/index.ts - generates .env for frontend
-import { writeEnvFile } from "@goals-club/shared";
-
-pulumi.all([cognitoDomain, clientId, apiEndpoint]).apply(([domain, clientId, api]) => {
-  writeEnvFile(path.join(__dirname, "../../ui/.env"), [
-    { key: "VITE_COGNITO_DOMAIN", value: domain },
-    { key: "VITE_COGNITO_CLIENT_ID", value: clientId },
-    { key: "VITE_GRAPHQL_API_URL", value: api },
-  ]);
-});
-```
-
-### 6. Bun Workspaces + Conventional Commits
-
-```json
-// Root package.json
-{
-  "workspaces": ["packages/*"],
-  "scripts": {
-    "prepare": "husky",
-    "preinstall": "bun sdk",
-    "format": "prettier --write ."
-  },
-  "lint-staged": {
-    "*.{js,ts,tsx}": ["prettier --write"]
-  }
-}
+goals-club-shared/                # Shared npm package (@goals-club/shared)
+└── src/
+    ├── types/                    # TypeScript interfaces
+    ├── validation/               # Zod schemas
+    └── constants/                # Shared constants
 ```
 
 ---
@@ -272,154 +132,153 @@ pulumi.all([cognitoDomain, clientId, apiEndpoint]).apply(([domain, clientId, api
 
 | Service | Purpose |
 |---------|---------|
-| **AppSync** | GraphQL API with real-time subscriptions |
-| **Aurora Serverless v2** | MySQL database (scales to zero) |
-| **Cognito** | User authentication |
-| **S3** | Static hosting, image storage |
-| **CloudFront** | CDN for web/admin apps |
-| **SES** | Transactional email |
-| **API Gateway** | Stripe webhooks |
-| **EventBridge** | Badge award events, async workflows |
-| **SQS** | Email queue, image processing |
-| **Secrets Manager** | API keys, DB credentials |
-| **CloudWatch** | Logging, monitoring |
+| **AppSync** | GraphQL API — 70 unit resolvers, 5 pipeline resolvers |
+| **Aurora Serverless v2** | MySQL database (26 tables, scales to zero) |
+| **Cognito** | OAuth 2.0 authentication (per-stack User Pool) |
+| **S3** | Static hosting (web + admin), image storage |
+| **CloudFront** | CDN for web + admin apps |
+| **API Gateway** | HTTP API for Strava webhook endpoint |
+| **Lambda** | Strava OAuth + history sync (120s timeout), webhook receiver, webhook processor, token refresh, DB migrations |
+| **SQS** | Strava activity queue + dead-letter queue (5 retries, prod-only webhook) |
+| **EventBridge** | Scheduled token refresh (every 5 hours) |
+| **SES** | Transactional email (DKIM configured) |
+| **Secrets Manager** | Database credentials (accessed via Pulumi env vars, not VPC endpoint) |
+| **Route 53** | DNS (wildcard SSL via ACM) |
+| **CloudWatch** | Logging, EMF metrics for Strava rate limits |
 
 ---
 
 ## AppSync Resolvers
 
-Resolvers use the **AppSync JavaScript (APPSYNC_JS) Runtime** with Aurora MySQL/RDS Data Source.
+Resolvers use the **AppSync JavaScript (APPSYNC_JS) Runtime** with Aurora MySQL via RDS Data Source.
 
-**📖 Full documentation:** [`APPSYNC_JS_RUNTIME.md`](./APPSYNC_JS_RUNTIME.md)
+**📖 Full constraints doc:** [`APPSYNC_JS_RUNTIME.md`](./APPSYNC_JS_RUNTIME.md)
 
-### Resolver Types
+| Type | Count | Use Case | Max SQL per invocation |
+|------|-------|----------|----------------------|
+| **Unit resolvers** | 70 | Simple CRUD, field-level resolvers | 2 |
+| **Pipeline resolvers** | 5 | Multi-step operations | Unlimited (1 per function) |
 
-| Type | Use Case | Max SQL Statements |
-|------|----------|-------------------|
-| **Standard Resolver** | Simple CRUD operations | 2 |
-| **Pipeline Resolver** | Multi-statement operations, complex logic | Unlimited (1 per function) |
-
-### File Structure
+**Pipeline resolvers:** `logGoalActivity`, `checkAndAwardBadges`, `createEvent`, `updateEvent`, `commitToEvent`
 
 ```
 packages/infra/modules/appsync-rds/
-├── schema.graphql              # GraphQL schema
-├── resolvers/                  # Standard resolvers (1-2 SQL statements)
-│   └── src/
-│       ├── goals/
-│       ├── users/
-│       └── activities/
-├── pipeline-functions/         # Reusable pipeline functions
-│   └── src/
-│       ├── insertActivity.js
-│       └── upsertGoalPeriod.js
-└── pipeline-resolvers/         # Pipeline resolver definitions
-    └── src/
-        └── logGoalActivity.js
+├── schema.graphql
+├── resolvers/src/                # Unit resolvers by domain
+│   ├── goals/
+│   ├── users/
+│   ├── activities/
+│   ├── badges/
+│   ├── events/
+│   ├── reactions/
+│   └── strava/
+├── pipeline-functions/src/       # Reusable pipeline functions
+└── pipeline-resolvers/src/       # Pipeline resolver definitions
 ```
 
-### Key Constraints
-
-⚠️ The AppSync JS runtime is NOT Node.js. Key restrictions:
+**Key constraints** (APPSYNC_JS ≠ Node.js):
 - No `for` loops (use `map`, `forEach`, `filter`)
 - No `++`/`--` operators (use `+= 1`)
-- Max 2 SQL statements per standard resolver
-- MySQL DATETIME format: `YYYY-MM-DD HH:MM:SS` (not ISO 8601)
+- Max 2 SQL statements per unit resolver
+- No `parseFloat()` — use SQL casting instead
 
 ---
 
-## Database Schema
+## Strava Integration
 
-Key tables (see DATABASE_SCHEMA.md for full details):
+| Component | Purpose |
+|-----------|---------|
+| **OAuth Lambda** | Exchanges auth code for tokens, stores in `strava_tokens`. Router pattern — also handles `syncStravaHistory` (paginated fetch of all past activities, dedup insert). 120s timeout |
+| **Webhook Receiver** | Validates Strava subscription (GET), enqueues events to SQS (POST), returns 200 immediately |
+| **Webhook Processor** | SQS-triggered — fetches activity from Strava API, captures GPS + route polyline, matches goal links, logs progress. Throws on 429 for SQS retry |
+| **Token Refresh** | EventBridge scheduled (every 5h) — refreshes tokens expiring within 6 hours |
+| **SQS Queue** | Decouples webhook from processing. DLQ after 5 failed attempts |
+| **Claim Resolver** | `listMyStravaActivitiesForItem` — GPS proximity (0-50) + name similarity (0-40) scoring. `claimStravaActivity` — links activity to goal item |
 
-- **users** - Profile data (Cognito handles auth)
-- **goals** - User goals with visibility/join settings
-- **goal_participants** - Users who joined shared goals
-- **activities** - Progress logs with optional location
-- **activity_photos** - Photos attached to activities
-- **reactions** - Encouragement reactions on activities
-- **follows** - User follows
-- **goal_follows** - Goal follows
-- **badges** - Virtual badge definitions
-- **user_badges** - Earned badges
-- **categories** - Goal categories
-- **events** - Organiser events
-- **organisers** - Event organiser applications
-- **products** - Physical merchandise
-- **orders** / **order_items** - E-commerce
-- **reaction_types** - Configurable reaction options
+**Rate limit monitoring:** EMF metrics emitted to CloudWatch (`GoalsClub/Strava` namespace) with 80% warning threshold.
+
+---
+
+## Database
+
+26 tables across 8 domains. See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for full schema.
+
+| Domain | Tables |
+|--------|--------|
+| **Core** | users, goals, goal_items, user_goals, user_goal_activities, user_goal_periods |
+| **Lookup** | goal_types, categories, reaction_types |
+| **Social** | user_follows, goal_follows, reactions |
+| **Badges** | badges, user_badges |
+| **Events** | organisers, event_series, events, user_event_interests |
+| **Strava** | strava_tokens, strava_goal_links, strava_activities |
+| **E-commerce** | products, orders, order_items |
+| **System** | notifications, audit_log |
 
 ---
 
 ## Frontend Stack
 
-### Admin (Refine + Mantine)
+### Web App (Public)
 | Library | Purpose |
 |---------|---------|
 | React 18 | UI framework |
-| Vite 7 | Build tool |
+| Vite | Build tool |
+| Mantine 8 | UI components |
+| React Router 7 | Routing |
+| aws-amplify 6 | Cognito auth |
+| canvas-confetti | Badge award celebrations |
+| react-helmet-async | Page titles / SEO |
+| mapbox-gl | Route maps for Strava activities |
+
+### Admin App
+| Library | Purpose |
+|---------|---------|
+| React 18 | UI framework |
+| Vite | Build tool |
 | Refine 4 | Admin CRUD framework |
 | Mantine 8 | UI components |
 | aws-amplify 6 | Cognito auth |
 | graphql-request | GraphQL client |
 
-### Web (Public)
-| Library | Purpose |
-|---------|---------|
-| React 18 | UI framework |
-| Vite 7 | Build tool |
-| Mantine 8 | UI components |
-| Leaflet | Maps |
-| aws-amplify 6 | Optional auth |
+---
+
+## Infrastructure Patterns
+
+### Makefile Orchestration
+Each repo has consistent targets: `make deploy`, `make preview`, `make tests`, `make clean`.
+
+### Pulumi S3 State Backend
+Stack state stored in S3 (not Pulumi Cloud). Encryption via passphrase. Stack-per-environment (`dev`, `prod`).
+
+### Cross-Repo Stack References
+Web and admin repos reference data stack outputs (Cognito config, AppSync endpoints) via `pulumi.StackReference`.
+
+### Environment File Generation
+Pulumi `preview`/`deploy` auto-generates `.env` files for frontends with Cognito domain, client ID, API URLs, Strava client ID.
+
+### Shared Package
+`@goals-club/shared` published to npm (GitHub Packages). Contains TypeScript interfaces, Zod validation schemas, and shared constants.
 
 ---
 
-## Cost Optimization
+## Cost (dev + prod combined, idle)
 
-### Pre-Launch (~$1-5/month)
-- Aurora Serverless v2 scales to zero
-- Lambda/AppSync/Cognito free tiers
-- Minimal S3 storage
+| Resource | Monthly |
+|----------|---------|
+| Aurora Serverless v2 (×2) | ~$0 (scales to zero) |
+| CloudFront (4 distributions) | ~$4 |
+| Everything else | Free tier |
+| **Total** | **~$10–15/mo** |
 
-### Post-Launch 1k users (~$50-100/month)
-- Aurora: ~$30-50
-- Lambda/AppSync: ~$15
-- S3/CloudFront: ~$10
-- SES: ~$1
+At 1,000 users: ~$50–100/mo (Aurora ~$30–50, Lambda/AppSync ~$15, CDN ~$10).
 
 ---
 
-## Shared Package Publishing
+## Multi-Environment Support
 
-### Option 1: GitHub Packages (Recommended)
-```json
-{
-  "name": "@goals-club/shared",
-  "publishConfig": { "registry": "https://npm.pkg.github.com" }
-}
-```
+The infrastructure supports multiple stacks (`dev`, `prod`) with parameterised resource names, subdomains, and database names. See [`PROD_STACK_DEPLOYMENT.md`](./PROD_STACK_DEPLOYMENT.md) for deployment guide.
 
-### Option 2: AWS CodeArtifact (Like Dataworks)
-Same auth pattern as Dataworks-SDK.
-
-### Option 3: Local File Reference (Dev)
-```json
-{ "dependencies": { "@goals-club/shared": "file:../goals-club-shared" } }
-```
-
----
-
-## Next Steps
-
-1. **Create goals-club-shared repo** - Types, helpers, constants
-2. **Create goals-club-data repo** - Scaffold from Dataworks-Data
-3. **Set up Pulumi state bucket** - New or share Dataworks
-4. **Create Cognito setup** - User pool, app clients
-5. **Create GraphQL schema** - Core types
-6. **Create goals-club-admin repo** - From Dataworks-Console
-7. **Create goals-club-web repo** - Public frontend
-
----
-
-*Document created: February 28, 2025*
-
+| Stack | Web URL | Admin URL | Database |
+|-------|---------|-----------|----------|
+| dev | dev.thegoalsclub.co.uk | dev-admin.thegoalsclub.co.uk | goalsclub_dev |
+| prod | thegoalsclub.co.uk | admin.thegoalsclub.co.uk | goalsclub_prod |

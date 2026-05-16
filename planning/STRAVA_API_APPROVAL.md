@@ -1,96 +1,47 @@
 # Strava API Approval
 
-## Current Status
+## Current Status: ✅ Approved
 
-The Strava integration is live and working for the app owner's account. The Strava API app is currently in **development mode**, which limits connections to **1 athlete** (not the documented 15). To allow unlimited users to connect their Strava accounts, the app must be submitted for Strava API approval.
+**Approved:** 2026-05-10 — 999 athlete connections available.
 
-**Approval submitted:** 2026-04-21 — Email sent to Strava with screenshots and app details.
+The Strava integration is live and working. All users can connect their Strava accounts.
 
 ---
 
-## What Strava Requires for Approval
+## Limits
+
+| Limit | Value |
+|-------|-------|
+| Connected athletes | 999 |
+| Overall rate limit | 600 requests / 15 min, 6,000 / day |
+| Read rate limit | 300 requests / 15 min, 3,000 / day |
+
+Rate limit hardening is deployed — see [STRAVA_RATE_LIMITS.md](./STRAVA_RATE_LIMITS.md) for full analysis.
+
+---
+
+## Compliance Checklist (all complete)
 
 | Requirement | Status |
 |---|---|
-| App icon (square image) | ✅ Uploaded (Goals Club logo) |
-| App description — what it does, how it uses Strava data | ✅ Included in email |
-| Website URL — live site (dev.thegoalsclub.co.uk) | ✅ Live |
-| Privacy policy URL | ✅ Live at `/privacy` |
-| Terms of service URL | ✅ Live at `/terms` |
-| Screenshot/demo of Strava data in the app | ✅ Included in email |
-
----
-
-## Will They Approve Based on What We Have?
-
-**Getting closer.** Strava specifically looks for:
-
-- ✅ A **privacy policy page** explaining how Strava data is stored, used, and deleted — `/privacy` now covers this
-- ✅ **"Powered by Strava"** attribution on Settings page — added
-- ✅ **Clear explanation of what data is accessed and why** — covered in privacy policy
-- ⏳ **Strava brand guidelines compliance** — need official badge assets (currently using a text fallback)
-
----
-
-## Remaining Steps for Approval
-
-### 1. Complete the Strava API App Settings
-At [strava.com/settings/api](https://www.strava.com/settings/api):
-- ✅ Upload the square app icon (Goals Club logo)
-- ⬜ Write the app description (what it does, how it uses Strava data)
-- ⬜ Set website URL to `https://dev.thegoalsclub.co.uk`
-- ⬜ Set privacy policy URL to `https://dev.thegoalsclub.co.uk/privacy`
-- ⬜ Set terms of service URL to `https://dev.thegoalsclub.co.uk/terms`
-
-### 2. Use Official Strava Badge Assets
-Download from [developers.strava.com/guidelines](https://developers.strava.com/guidelines/):
-- ⬜ Replace the text "Powered by Strava" with the official badge image
-- ⬜ Add "Powered by Strava" or Strava logo where activity data from Strava is displayed (activity history cards)
-
-### 3. Screenshots/Demo
-Capture screenshots showing:
-- ⬜ The Strava connect flow (`/settings`)
-- ⬜ A goal detail page with the Strava Auto-Sync section and activity history populated from Strava
-
-### 4. Submit for Review
-- ⬜ Once all items above are complete, submit via the Strava API settings page
-
----
-
-## Completed ✅
-
-- ✅ Privacy policy page (`/privacy`) — covers Strava data storage, token handling, disconnect flow
-- ✅ Terms of service page (`/terms`) — covers Strava integration section
-- ✅ "Powered by Strava" attribution on Settings page
-- ✅ "Powered by Strava" attribution on Goal Detail (Strava Auto-Sync panel)
-- ✅ Privacy/Terms/Contact footer links on all authenticated pages (AppLayout)
-- ✅ Privacy and Terms pages rendered within site layout (header + footer)
-- ✅ Routes wired: `/privacy`, `/terms`, `/contact` (within AppLayout)
-- ✅ Contact page (`/contact`) — mailto link to support@thegoalsclub.co.uk
-- ✅ Goals Club logo created and added to site header (with scroll-shrink animation)
-- ✅ Logo uploaded to Strava API app settings as app icon
-
----
-
-## Notes
-
-- An about page and help section are nice but **will not affect approval**
-- The **privacy policy was the single most critical item** — now complete
-- Test athletes must be explicitly added in dev mode (up to 15)
-- Once approved, the 15-athlete limit is removed and any Strava user can connect
+| App icon (square image) | ✅ Goals Club logo |
+| App description | ✅ |
+| Website URL | ✅ dev.thegoalsclub.co.uk |
+| Privacy policy URL | ✅ `/privacy` |
+| Terms of service URL | ✅ `/terms` |
+| "Powered by Strava" attribution | ✅ Settings page + Goal Detail |
+| Privacy policy covers Strava data | ✅ Storage, tokens, disconnect flow |
 
 ---
 
 ## Future: Expanded Strava Data Access
 
-Currently we only access activity type, distance, and date (`activity:read` scope). This keeps the approval process simple and the privacy policy lightweight.
-
-**Planned for a future sprint** (post-approval):
+Currently we only access activity type, distance, and date (`activity:read` scope).
 
 | Data | Scope Needed | Use Case |
 |---|---|---|
-| GPS routes | `activity:read` (already have) | Activity maps on goal pages, route heatmaps |
-| Heart rate | `activity:read` (already have) | Richer activity cards (avg/max HR), training insights |
+| GPS routes | `activity:read` (already have) | Activity maps, route heatmaps |
+| Heart rate | `activity:read` (already have) | Richer activity cards, training insights |
 | Photos | `activity:read` (already have) | Auto-attach Strava photos to activity history |
 | Private activities | `activity:read_all` | Include non-public Strava activities in goal sync |
 
