@@ -1,12 +1,12 @@
 # Project Status
 
-**Last Updated:** May 16, 2026
+**Last Updated:** May 17, 2026
 
 ---
 
 ## 📍 Current Phase: Soft Launch (Friends Beta) — Dual Environment
 
-Live at both `thegoalsclub.co.uk` (prod) and `dev.thegoalsclub.co.uk` (dev). Strava approved for 999 athletes. All pre-launch priorities complete. Production stack deployed.
+Live at both `thegoalsclub.co.uk` (prod) and `dev.thegoalsclub.co.uk` (dev). Strava approved for 999 athletes. All pre-launch priorities complete. Production stack deployed. Group Challenges Phase 1 live on both environments.
 
 ---
 
@@ -23,6 +23,7 @@ Live at both `thegoalsclub.co.uk` (prod) and `dev.thegoalsclub.co.uk` (dev). Str
 | **Social** | ✅ Complete | Follow/unfollow, reactions, activity feed (ALL/FOLLOWING/MINE), follower modal |
 | **Profiles** | ✅ Complete | Public profiles, share button, visibility controls |
 | **Strava** | ✅ Complete | OAuth, webhook (SQS-decoupled, prod-only), auto-sync, token refresh, rate limit hardening, activity claiming, route maps |
+| **Groups** | ✅ Phase 1 | Create group, invite link join, add/search/create goals, leaderboard with monthly filtering, group feed, join notifications, test data seeder |
 | **Admin** | ✅ Complete | Full CRUD for all models, event approval workflow, user suspend |
 | **Mobile** | ✅ Tested | Dashboard, Explore, Goal Detail, Profile all responsive |
 | **Error handling** | ✅ Complete | RDS cold-start auto-retry (3x), friendly beta error message, ErrorAlert component, 404 page, skeleton loaders |
@@ -35,8 +36,8 @@ Live at both `thegoalsclub.co.uk` (prod) and `dev.thegoalsclub.co.uk` (dev). Str
 
 | Component | Service | Notes |
 |-----------|---------|-------|
-| Database | Aurora Serverless v2 MySQL | Scales to zero, ~5 min auto-pause |
-| API | AppSync GraphQL + RDS Data Source | 70+ unit resolvers, 5 pipeline resolvers |
+| Database | Aurora Serverless v2 MySQL | Scales to zero, ~5 min auto-pause. 29 tables |
+| API | AppSync GraphQL + RDS Data Source | 80+ unit resolvers, 11 pipeline resolvers |
 | Auth | Cognito User Pool | OAuth 2.0, per-stack |
 | Web frontend | S3 + CloudFront | `thegoalsclub.co.uk` (prod), `dev.thegoalsclub.co.uk` (dev) |
 | Admin | S3 + CloudFront | `admin.thegoalsclub.co.uk` (prod), `dev-admin.thegoalsclub.co.uk` (dev) |

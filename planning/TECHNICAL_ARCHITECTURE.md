@@ -1,6 +1,6 @@
 # The Goals Club — Technical Architecture
 
-> Last updated: 2026-05-16
+> Last updated: 2026-05-17
 
 ## Overview
 
@@ -132,8 +132,8 @@ goals-club-shared/                # Shared npm package (@goals-club/shared)
 
 | Service | Purpose |
 |---------|---------|
-| **AppSync** | GraphQL API — 70 unit resolvers, 5 pipeline resolvers |
-| **Aurora Serverless v2** | MySQL database (26 tables, scales to zero) |
+| **AppSync** | GraphQL API — 80+ unit resolvers, 11 pipeline resolvers |
+| **Aurora Serverless v2** | MySQL database (29 tables, scales to zero) |
 | **Cognito** | OAuth 2.0 authentication (per-stack User Pool) |
 | **S3** | Static hosting (web + admin), image storage |
 | **CloudFront** | CDN for web + admin apps |
@@ -156,10 +156,10 @@ Resolvers use the **AppSync JavaScript (APPSYNC_JS) Runtime** with Aurora MySQL 
 
 | Type | Count | Use Case | Max SQL per invocation |
 |------|-------|----------|----------------------|
-| **Unit resolvers** | 70 | Simple CRUD, field-level resolvers | 2 |
-| **Pipeline resolvers** | 5 | Multi-step operations | Unlimited (1 per function) |
+| **Unit resolvers** | 80+ | Simple CRUD, field-level resolvers | 2 |
+| **Pipeline resolvers** | 11 | Multi-step operations | Unlimited (1 per function) |
 
-**Pipeline resolvers:** `logGoalActivity`, `checkAndAwardBadges`, `createEvent`, `updateEvent`, `commitToEvent`
+**Pipeline resolvers:** `logGoalActivity`, `checkAndAwardBadges`, `createEvent`, `updateEvent`, `commitToEvent`, `createGroup`, `joinGroup`, `addGroupGoal`, `followUser`, `reactToActivity`, `createGoal`
 
 ```
 packages/infra/modules/appsync-rds/
@@ -170,6 +170,7 @@ packages/infra/modules/appsync-rds/
 │   ├── activities/
 │   ├── badges/
 │   ├── events/
+│   ├── groups/
 │   ├── reactions/
 │   └── strava/
 ├── pipeline-functions/src/       # Reusable pipeline functions
@@ -201,13 +202,14 @@ packages/infra/modules/appsync-rds/
 
 ## Database
 
-26 tables across 8 domains. See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for full schema.
+29 tables across 9 domains. See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for full schema.
 
 | Domain | Tables |
 |--------|--------|
 | **Core** | users, goals, goal_items, user_goals, user_goal_activities, user_goal_periods |
 | **Lookup** | goal_types, categories, reaction_types |
 | **Social** | user_follows, goal_follows, reactions |
+| **Groups** | groups, group_members, group_goals |
 | **Badges** | badges, user_badges |
 | **Events** | organisers, event_series, events, user_event_interests |
 | **Strava** | strava_tokens, strava_goal_links, strava_activities |

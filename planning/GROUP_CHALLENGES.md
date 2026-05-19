@@ -1,6 +1,6 @@
 # Group Challenges — Feature Spec
 
-> Status: **Future** — not yet started. Designed as a B2B2C revenue feature.
+> Status: **Phase 1 Complete** (May 17, 2026) — live on dev. Designed as a B2B2C revenue feature.
 
 ---
 
@@ -51,17 +51,20 @@ group_milestones (Phase 2):
 ## Join Flow
 
 1. Group admin creates group → gets invite link: `thegoalsclub.co.uk/groups/join/MASSAGE2026`
-2. User clicks link → sees group description + goals → "Join Group"
-3. Joining auto-joins all group goals (or pick from list)
-4. User appears on leaderboard immediately
+2. User clicks link → must be logged in → sees group description + goals → "Join Group"
+3. User joins group as member — does **not** auto-join group goals
+4. User can explicitly join individual group goals via "Join" button on goal cards
+5. User appears on leaderboard for joined goals
 
 ---
 
 ## Leaderboard
 
 - No new table — aggregation query on `user_goal_activities` for group members
-- `getGroupLeaderboard(groupId, goalId, period: "all" | "month" | "week")`
-- Returns: `[{ user, totalValue, currentStreak, rank }]`
+- `getGroupLeaderboard(groupId, goalId, sortBy, limit, startDate, endDate)`
+- Monthly filtering via `startDate`/`endDate` params — UI provides month picker (last 12 months)
+- Falls back to `group_goals.start_date/end_date` when no explicit dates, then all-time
+- Returns: `[{ user, totalValue, currentStreak, longestStreak, rank }]`
 - Sortable by: total progress, current streak, longest streak
 
 ---
@@ -70,16 +73,18 @@ group_milestones (Phase 2):
 
 - Reuses existing goals, activities, streaks, badges — groups are a social wrapper
 - Group activity feed = existing feed filtered by group members
-- Invite code flow similar to event "I'm Doing This"
+- Invite code flow requires authentication (moved from public to authenticated layout)
 - Group admin is just a user with elevated role in that context
 - Privacy: members see each other's progress on group goals only — doesn't expose other goals
+- Any user can create a group (no restrictions on group creation)
 
 ---
 
 ## Key Decisions
 
 - **No built-in chat** — link to WhatsApp/Discord via `chat_url` field
-- **Time-bounded challenges** — `start_date`/`end_date` on `group_goals` scopes the leaderboard
+- **No auto-join** — members explicitly opt into individual goals via "Join" button (admins may not participate; members may only want some goals)
+- **Time-bounded challenges** — `start_date`/`end_date` on `group_goals` scopes the leaderboard, plus query-time `startDate`/`endDate` for monthly views
 - **Multiple admins** — `role: ADMIN` in `group_members`
 - **Abuse prevention** — rate-limit group creation, admin can suspend groups
 
@@ -87,12 +92,12 @@ group_milestones (Phase 2):
 
 ## Phasing
 
-| Phase | Scope |
-|-------|-------|
-| **Phase 1** | Groups + members + invite link + group goals + basic leaderboard |
-| **Phase 2** | Milestones/prizes + badge awards for group achievements |
-| **Phase 3** | Paid groups (Stripe) + group admin analytics dashboard |
-| **Phase 4** | Public group directory + featured groups |
+| Phase | Scope | Status |
+|-------|-------|--------|
+| **Phase 1** | Groups + members + invite link + group goals + leaderboard (monthly filtering) + group feed + join notifications | ✅ Complete |
+| **Phase 2** | Milestones/prizes + badge awards for group achievements | Planned |
+| **Phase 3** | Paid groups (Stripe) + group admin analytics dashboard | Planned |
+| **Phase 4** | Public group directory + featured groups | Planned |
 
 ---
 

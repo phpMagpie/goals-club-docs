@@ -1,6 +1,6 @@
 # Next Steps
 
-Last updated: 2026-05-16
+Last updated: 2026-05-19
 
 ---
 
@@ -17,72 +17,59 @@ Strava is approved for 999 athletes. See [archive/NEXT_STEPS_PRE_LAUNCH.md](./ar
 
 ## 🔜 Up Next
 
+### Strava History Sync — Timeout Fix (URGENT)
+The `syncStravaHistory` Lambda times out for users with large activity histories (216 activities failed; incoming user has 5,500+). AppSync has a hard 30s timeout for Lambda resolvers regardless of Lambda timeout.
 
-### CloudWatch Alarms
-- DLQ depth > 0 (Strava webhook failures)
-- Lambda error rate threshold
-- Strava rate limit 80% threshold (EMF metrics already emitted)
+**Options:**
+1. **Async sync** — mutation triggers Lambda asynchronously (returns immediately), frontend polls for completion status via a `syncStatus` query. Requires a `strava_sync_jobs` table or DynamoDB status record.
+2. **Incremental sync** — only fetch activities since the last sync (`after` epoch param on Strava API). First sync fetches all; subsequent syncs only fetch new. Reduces volume dramatically.
+3. **Both** — async + incremental for the best UX.
 
----
+### Cognito / Email Polish
+- **Cognito hosted UI theming** — brand the login/signup/confirm pages with Goals Club colours and logo
+- **Email templates** — style verification code and password reset emails with Goals Club branding
+- **Spam guidance** — add a message on the signup confirmation page telling users to check spam/junk folder for the verification code
 
-## ✅ Completed — May 16, 2026
+### UX Fixes
+- **Notification bell on mobile** — bell icon shows but clicking it doesn't load notifications. Likely a responsive/routing issue.
+- **Getting Started page** — make it user-aware: if logged in, mark off completed sections (e.g. "Connect Strava" ✅ if `stravaConnection.connected`, "Join a goal" ✅ if user has goals)
 
-### AWS Budget Alerts
-- **Three monthly cost budgets** at $25, $50, $75 thresholds — created in prod stack only (account-scoped)
-- Both actual and forecasted spend alerts, emailing `paul@thegoalsclub.co.uk`
-- Module: `goals-club-data/packages/infra/modules/cost-monitoring.ts`
-
-### Production Stack Deployment
-- **All three repos** (data, web, admin) now deploy to both `dev` and `prod` via `make deploy_dev` / `make deploy_prod`
-- **Makefile refactored** in all repos: `_pulumi_setup` → `_pulumi_preview` (generates .env) → `build` → `_pulumi_up` → `invalidate_cache` → `backup_stack`
-- **`setup.ts`** reads `.env`/`.env.prod` and `.secrets`/`.secrets.prod` based on `GOALS_CLUB_ENVIRONMENT`, pushes config to Pulumi
-- **`initialise_stack.sh`** added to admin repo (data/web already had it)
-- **`.gitignore`** updated in all repos to exclude `.env.prod`, `.secrets.*` — caught and unstaged accidentally staged secrets files
-- **Cognito `logout_uri`** fix — admin infra now generates `VITE_COGNITO_LOGOUT_URI` dynamically from `adminUrl` (was stale `dev-admin` value)
-
-### Strava Webhook — Prod Only
-- **Webhook subscription is now prod-only** — `strava-webhook-subscription.ts` wrapped in `isProduction()` check
-- Dev deploys no longer steal the webhook from prod
-- Dev can still use Strava OAuth + manual sync; just won't receive automatic activity pushes
-- Strava app "Authorization Callback Domain" set to `thegoalsclub.co.uk` (covers all subdomains for OAuth)
-
-### UX Improvements
-- **Explore page**: Join goal no longer navigates away — stays on page with filters/search intact, card updates to "Joined" via refetch
-- **Explore page**: "Load More" button now visible when "Not joined only" filter is active
-- **Explore page**: Past event goals hidden server-side — `listPublicGoals` resolver now LEFT JOINs events table, excludes goals where `event_date < CURDATE()`
-- **Error handling**: Auto-retry for RDS cold starts (3 retries: 3s→5s→8s) with friendly beta message if exhausted. New `ErrorAlert` component used across all pages (yellow for wake-up, red for other errors, with "Try Again" button)
-
-### Infrastructure Cost Optimization
-- **Removed VPC Endpoint for Secrets Manager** — saved ~$7.30/mo per environment ($14.60/mo total)
-- Migration Lambda now receives DB credentials via environment variables (Pulumi secrets) instead of fetching from Secrets Manager at runtime
-- Estimated monthly cost reduced from ~$24–62 to ~$10–48 (dev + prod combined)
+### Group Challenges — Remaining Polish
+- Mobile responsiveness review for group pages
+- Group settings page (edit name/description, manage members, remove goals)
 
 ---
 
-## ✅ Completed — May 11, 2026
+## ✅ Recently Completed
 
-### Strava Activity Claiming
-- **Claim modal** — users can link a Strava activity to a collection goal item (e.g. a parkrun course). GPS proximity scoring (0-50 pts) + name similarity scoring (0-40 pts), sorted by best match. Search/filter supported.
-- **New resolvers**: `listMyStravaActivitiesForItem` (scoring), `claimStravaActivity` (links activity as ITEM_COMPLETION)
-- **Migration**: `start_lat`, `start_lng`, `route_polyline` added to `strava_activities`; `strava_activity_id` FK added to `user_goal_activities`
-- **Webhook processor** updated to capture GPS start coordinates and route polyline from Strava
+### May 18, 2026
+- **SES production access** — approved by AWS, emails now send from `noreply@thegoalsclub.co.uk` via SES DEVELOPER mode
+- **Email deliverability** — added DMARC record, custom MAIL FROM domain (`mail.thegoalsclub.co.uk`) with SPF + MX records. All three auth checks now pass (DKIM ✅, SPF ✅, DMARC ✅)
+- **Strava webhook hardening** — processor now handles both `create` and `update` events (safe via INSERT IGNORE dedup). Catches activities that only send `update` webhooks.
+- **Strava sync performance** — removed expensive backfill loop from `syncStravaHistory` (was doing N SQL queries per existing activity). Existing activities now skip instantly.
+- **Lambda timeout increase** — Strava OAuth Lambda timeout 120s → 300s
+- **Strava matched activities** — identified that Strava's "Add People" feature (group activities) does NOT send webhooks to tagged users. Manual sync required for these.
 
-### Strava Historical Sync
-- **Settings page** "Sync History" button — fetches all past activities from Strava API (paginated at 200/page), dedup-inserts with GPS + polyline
-- **Lambda refactored** to router pattern (`event.info.fieldName` switch) handling both `connectStrava` and `syncStravaHistory`
-- Lambda timeout increased 30→120s for large history syncs
+### May 17, 2026
+- **Event goal completion via Strava claim** — claiming a Strava activity on an event goal auto-completes it; removing the activity resets to ACTIVE. Two new pipeline resolvers (`claimStravaActivity`, `deleteGoalActivity`), `useDeleteGoalActivity` hook, remove button on GoalDetail
+- **AppSync pipeline patterns documented** — `ctx.prev.result` vs `ctx.stash` clarified in APPSYNC_JS_RUNTIME.md
+- **Group Challenges Phase 1** — full groups system deployed to dev + prod (3 tables, 12 unit resolvers, 4 pipeline resolvers, leaderboard with monthly filtering, invite link join flow, Add Goal modal, test data seeder)
+- **PR review fixes** across data, web, and admin repos (secret redaction, accessibility, pagination, scroll restoration, Cognito logout, lazy Strava maps, Makefile hardening)
 
-### Strava Route Maps
-- **Inline route map** on claimed items — decodes Google Encoded Polyline and renders on Mapbox GL with Strava orange route line, start/end markers
-- New `StravaRouteMap` component + `decodePolyline` utility
-- Linked Strava activity details (name, distance, time, link to Strava) shown on completed item cards
+### May 16, 2026
+- **CloudWatch Alarms** — DLQ depth, Lambda errors, Strava rate limit 80%
+- **AWS Budget Alerts** — $25/$50/$75 thresholds
+- **Production stack deployment** — all three repos deploy to dev + prod
+- **Strava webhook** — prod-only subscription
+- **UX improvements** — Explore page polish, RDS cold-start auto-retry
+- **Cost optimization** — removed VPC Endpoint for Secrets Manager (~$14.60/mo saved)
 
-### Infrastructure & Types
-- GraphQL schema updated: `stravaActivityId` + `stravaActivity` relation on `UserGoalActivity`
-- `listUserGoalActivities` resolver updated with LEFT JOIN to `strava_activities`
-- `@goals-club/shared` bumped to 0.0.12, published to CodeArtifact
-- Settings page layout fixed for mobile (buttons now stack vertically)
-- AppSync JS runtime doc updated with new restrictions discovered (no `.sort()` callbacks, no `Math.cos/sqrt`, `util.time.parseFormattedToEpochMilliSeconds` unreliable)
+### May 11, 2026
+- **Strava activity claiming** — GPS proximity + name similarity scoring
+- **Strava historical sync** — paginated fetch of all past activities
+- **Strava route maps** — Mapbox GL polyline rendering on claimed items
+
+**Full details:** [archive/COMPLETED_POST_LAUNCH.md](./archive/COMPLETED_POST_LAUNCH.md)
 
 ---
 
@@ -101,7 +88,7 @@ These will be driven by what testers report. Nothing blocked.
 
 | Feature | Effort | Notes |
 |---------|--------|-------|
-| **Notifications** | 2-3 days | DynamoDB table, bell icon, read/unread state. Covers: follows, reactions, badge awards |
+| **Group Challenges polish** | 2-3 days | Group settings page, mobile review |
 | **Mobile polish** | Ongoing | Address any issues testers report on phone viewports |
 
 ### Medium-Term (months 2-3)
@@ -109,14 +96,14 @@ These will be driven by what testers report. Nothing blocked.
 | Feature | Effort | Notes |
 |---------|--------|-------|
 | **Super Goals** | 1 week | Parent/child goal hierarchy. `parent_goal_id` column, auto-progress from children. NT regional goals, Wainwright regions |
-| **Group Challenges** | 2-3 weeks | B2B2C feature — invite links, leaderboards, time-bounded challenges. See [GROUP_CHALLENGES.md](./GROUP_CHALLENGES.md) |
-| **Pipeline resolver conversions** | Ongoing | Convert `joinGoal`, `createGoal`, `followUser` etc. to pipelines when touching them. Tech debt — no user impact |
+| **Group Challenges Phase 2** | 1-2 weeks | Milestones/prizes, badge awards for group achievements. See [GROUP_CHALLENGES.md](./GROUP_CHALLENGES.md) |
+| **Pipeline resolver conversions** | Ongoing | Convert `joinGoal`, `followUser` etc. to pipelines when touching them. Tech debt — no user impact |
 
 ### Long-Term (months 4+)
 
 | Feature | Notes |
 |---------|-------|
-| **Garmin integration** | Second fitness platform alongside Strava |
+| **Garmin integration** | Second fitness platform alongside Strava. See [GARMIN_INTEGRATION.md](./GARMIN_INTEGRATION.md) |
 | **Achievement sharing** | Share badges/completions to social media |
 | **Premium tier** | Group Challenges Pro (£9.99/mo), analytics dashboard |
 | **Public launch** | Marketing site, App Store |
@@ -129,7 +116,7 @@ These will be driven by what testers report. Nothing blocked.
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| Pipeline resolver conversions | Low | 6 candidates identified. Do when touching those resolvers |
+| Pipeline resolver conversions | Low | 4 candidates remaining (6 identified, 2 done: `claimStravaActivity`, `deleteGoalActivity`). Do when touching those resolvers |
 | Admin dashboard stats | Low | Users, goals, activities, badges — nice-to-have |
 | Organiser approval workflow | Low | Currently go straight to approved |
 
@@ -150,17 +137,20 @@ These will be driven by what testers report. Nothing blocked.
 | [STRAVA_RATE_LIMITS.md](./STRAVA_RATE_LIMITS.md) | Rate limit analysis, all 4 fixes deployed |
 | [STRAVA_API_APPROVAL.md](./STRAVA_API_APPROVAL.md) | Strava approval status (✅ approved, 999 athletes) |
 | [GROUP_CHALLENGES.md](./GROUP_CHALLENGES.md) | B2B2C feature spec — groups, leaderboards, revenue model |
+| [GARMIN_INTEGRATION.md](./GARMIN_INTEGRATION.md) | Garmin Connect integration plan — API access, architecture, implementation |
 | [BADGE_DESIGN_REFERENCE.md](./BADGE_DESIGN_REFERENCE.md) | Kawaii animal mascot specs for badge artwork |
 | [TECHNICAL_ARCHITECTURE.md](./TECHNICAL_ARCHITECTURE.md) | System architecture overview |
 | [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Database schema reference |
 | [EVENTS_SYSTEM.md](./EVENTS_SYSTEM.md) | Events & organisers system design |
 | [SCROLL_RESTORATION.md](./SCROLL_RESTORATION.md) | Scroll restoration implementation notes |
 | [APPSYNC_JS_RUNTIME.md](./APPSYNC_JS_RUNTIME.md) | AppSync JS resolver limitations & workarounds |
+| [PULUMI_STATE_MANAGEMENT.md](./PULUMI_STATE_MANAGEMENT.md) | Recovery procedures for stale Pulumi state (ghost resources) |
 
 ### Archived (completed phases)
 
 | Document | Contents |
 |----------|----------|
+| [archive/COMPLETED_POST_LAUNCH.md](./archive/COMPLETED_POST_LAUNCH.md) | All completed work since soft launch (May 11+) |
 | [archive/NEXT_STEPS_PRE_LAUNCH.md](./archive/NEXT_STEPS_PRE_LAUNCH.md) | Full build history — 6 sprint priorities, all completed items |
 | [archive/STATUS_PRE_LAUNCH.md](./archive/STATUS_PRE_LAUNCH.md) | Feature completion status as of Week 6 |
 | [archive/PRE_LAUNCH_AUDIT.md](./archive/PRE_LAUNCH_AUDIT.md) | Security & UX audit — all critical/important items resolved |

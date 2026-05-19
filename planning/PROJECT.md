@@ -150,12 +150,13 @@ These features are planned but deferred until after launch:
 |---------|---------------------|
 | Physical Merchandise Shop | Need merch partners first, build community |
 | Event Organisers | Focus on user goals first |
-| Strava integration | Requires live site for OAuth review |
+| ~~Strava integration~~ | ✅ Completed — OAuth + webhook + activity claiming |
 | Apple Health / Fitbit / Garmin | Phase 2 integration |
+| ~~Group Challenges~~ | ✅ Phase 1 completed — groups, invite links, leaderboards |
 | Local Goal Clubs | Needs organic community first |
 | Accountability Partners | Post-launch feature |
 | Goal Templates | Can add after seeing real user goals |
-| Time-Limited Challenges | Post-launch engagement feature |
+| ~~Time-Limited Challenges~~ | ✅ Built into Group Challenges (start_date/end_date on group_goals) |
 | Badge Marketplace | Needs community scale |
 | Comments/Messaging | Minimal until community trust established |
 | Advanced visualisations | Basic progress view first |

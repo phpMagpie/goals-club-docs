@@ -1,17 +1,18 @@
 # The Goals Club — Database Schema
 
 > Auto-generated from squashed migration `20260419000001-squashed-initial-schema.js`
-> Last updated: 2026-05-11
+> Last updated: 2026-05-17
 
 ## Overview
 
-Complete MySQL database schema for The Goals Club platform (26 tables). Supports:
+Complete MySQL database schema for The Goals Club platform (29 tables). Supports:
 - **Template goals** (public/joinable) and **custom goals** (personal)
 - **Collection goals** with tickable items (Wainwrights, National Trust sites)
 - **Recurring goals** with period tracking and streaks
 - **Event goals** linked to organised events and event series
 - **Strava integration** with OAuth tokens, activity dedup, and goal linking
 - **Social features** — follows, reactions, activity feed
+- **Group challenges** — invite-link groups, shared goals, leaderboards
 - **Badges** with auto-awarding criteria
 - **E-commerce** for physical badge merchandise
 
@@ -409,6 +410,58 @@ Dedup table — prevents processing the same Strava activity twice.
 | route_polyline | TEXT | Google Encoded Polyline from Strava |
 | processed_at | DATETIME | |
 | created_at | DATETIME | |
+
+---
+
+## Group Challenges
+
+### groups
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | VARCHAR(26) | PK (ULID) |
+| name | VARCHAR(200) | NOT NULL |
+| slug | VARCHAR(200) | UNIQUE, NOT NULL |
+| description | TEXT | nullable |
+| image_url | VARCHAR(500) | nullable |
+| invite_code | VARCHAR(20) | UNIQUE, NOT NULL |
+| creator_id | VARCHAR(26) | FK → users(id) SET NULL, nullable |
+| chat_url | VARCHAR(500) | nullable (WhatsApp/Discord link) |
+| visibility | ENUM('PRIVATE','PUBLIC') | DEFAULT 'PRIVATE' |
+| max_members | INT | nullable (null = unlimited) |
+| start_date | DATE | nullable |
+| end_date | DATE | nullable |
+| created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP |
+| updated_at | DATETIME | DEFAULT CURRENT_TIMESTAMP ON UPDATE |
+
+**Indexes:** `creator_id`, `invite_code` (unique), `slug` (unique), `visibility`
+
+### group_members
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | VARCHAR(26) | PK (ULID) |
+| group_id | VARCHAR(26) | FK → groups(id) CASCADE, NOT NULL |
+| user_id | VARCHAR(26) | FK → users(id) CASCADE, NOT NULL |
+| role | ENUM('OWNER','ADMIN','MEMBER') | DEFAULT 'MEMBER', NOT NULL |
+| joined_at | DATETIME | DEFAULT CURRENT_TIMESTAMP |
+
+**Unique constraint:** (group_id, user_id)
+
+### group_goals
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | VARCHAR(26) | PK (ULID) |
+| group_id | VARCHAR(26) | FK → groups(id) CASCADE, NOT NULL |
+| goal_id | VARCHAR(26) | FK → goals(id) CASCADE, NOT NULL |
+| added_by | VARCHAR(26) | FK → users(id) SET NULL, nullable |
+| leaderboard_enabled | BOOLEAN | DEFAULT true |
+| start_date | DATE | nullable |
+| end_date | DATE | nullable |
+| created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP |
+
+**Unique constraint:** (group_id, goal_id)
 
 ---
 

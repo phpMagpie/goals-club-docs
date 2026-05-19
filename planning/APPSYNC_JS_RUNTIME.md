@@ -1,6 +1,6 @@
 # AppSync JavaScript Runtime Guidelines
 
-**Last Updated:** May 11, 2026
+**Last Updated:** May 17, 2026
 
 This document covers the constraints and best practices for writing AppSync resolvers using the JavaScript (APPSYNC_JS) runtime with Aurora MySQL / RDS Data Source.
 
@@ -8,7 +8,20 @@ This document covers the constraints and best practices for writing AppSync reso
 
 ## 🚨 MOST COMMON MISTAKES
 
-### 1. Multiple SQL Statements
+### 1. Using `util.toJson()` (VTL-only)
+```javascript
+// ❌ WRONG - util.toJson() is a VTL utility, NOT available in JS runtime
+// This causes "The code contains one or more errors" on deploy
+const payload = util.toJson({ key: "value" });
+
+// ✅ CORRECT - Use JSON.stringify() in JS runtime
+const payload = JSON.stringify({ key: "value" });
+
+// Note: util.autoUlid(), util.time.nowISO8601(), util.error() ARE available in JS runtime
+// Only util.toJson() and other VTL-specific methods are not
+```
+
+### 2. Multiple SQL Statements
 ```javascript
 // ❌ WRONG - createMySQLStatement only accepts 1-2 arguments
 return createMySQLStatement(sql`...`, sql`...`, sql`...`);
@@ -19,7 +32,40 @@ return createMySQLStatement(sql`...`, sql`...`);
 // For more operations, use a pipeline resolver with multiple functions
 ```
 
-### 2. Loops
+### 3. Pipeline ctx.prev.result vs ctx.stash
+```javascript
+// ❌ WRONG - ctx.prev.result in a function's response handler is the RAW
+// data source result from its OWN request, NOT the previous function's return.
+// This returns null/undefined for SQL mutations (UPDATE/INSERT).
+export function response(ctx) {
+  return ctx.prev.result; // ← this is the SQL result, not the previous function's return!
+}
+
+// ✅ CORRECT - Use ctx.stash to pass data between pipeline functions.
+// In function 1 response:
+ctx.stash.activityResult = { id, userGoalId, ... };
+return ctx.stash.activityResult;
+
+// In function 2 (or last function) response:
+export function response(ctx) {
+  return ctx.stash.activityResult; // ← read from stash, survives across functions
+}
+
+// In the pipeline resolver response:
+export function response(ctx) {
+  if (ctx.error) return util.error(ctx.error.message, ctx.error.type);
+  if (ctx.stash.activityResult) return ctx.stash.activityResult;
+  return ctx.prev.result;
+}
+```
+
+**Rule of thumb:** `ctx.prev.result` only works reliably in:
+- A function's **request** handler (= previous function's response return value)
+- The pipeline resolver's **response** handler (= last function's response return value)
+
+It does **NOT** work in a function's **response** handler to get the previous function's return — it contains the raw data source response instead. Always use `ctx.stash` to pass complex objects between functions.
+
+### 4. Loops
 ```javascript
 // ❌ WRONG - for, while, for...of, for...in NOT supported
 for (let i = 0; i < arr.length; i++) { }
@@ -30,7 +76,7 @@ arr.forEach((item) => { });
 arr.map((item) => item.value);
 ```
 
-### 3. Date Objects
+### 5. Date Objects
 ```javascript
 // ❌ WRONG - new Date() not supported
 const date = new Date("2027-01-01");
@@ -40,7 +86,7 @@ const now = util.time.nowISO8601();
 const isBeforeCutoff = dateStr < "2027-01-01";
 ```
 
-### 4. JSON Parsing
+### 6. JSON Parsing
 ```javascript
 // ❌ WRONG - JSON.parse may not work reliably
 const obj = JSON.parse(jsonString);
@@ -49,7 +95,7 @@ const obj = JSON.parse(jsonString);
 const value = extractStringValue(jsonString, 'key');
 ```
 
-### 5. String() Constructor
+### 7. String() Constructor
 ```javascript
 // ❌ WRONG - String() not supported
 const str = String(value);
@@ -58,7 +104,7 @@ const str = String(value);
 const str = "" + value;
 ```
 
-### 6. parseInt() / parseFloat()
+### 8. parseInt() / parseFloat()
 ```javascript
 // ❌ WRONG - parseInt not supported
 const num = parseInt(str, 10);
@@ -79,6 +125,7 @@ The AppSync JS runtime is **NOT** Node.js. It's a subset of JavaScript with sign
 
 | ❌ NOT Supported | ✅ Use Instead |
 |------------------|----------------|
+| `util.toJson()` | `JSON.stringify()` (VTL-only utility) |
 | `for` loops | `forEach()`, `map()`, `filter()`, `reduce()` |
 | `for...of` loops | `forEach()` or `Array.from().forEach()` |
 | `for...in` loops | `Object.keys().forEach()` |
@@ -293,8 +340,11 @@ export function response(ctx) {
 
 Each function has access to:
 - `ctx.args` - Original GraphQL arguments
-- `ctx.stash` - Shared data between functions (use this to pass data!)
-- `ctx.prev.result` - Result from previous function
+- `ctx.stash` - Shared data between functions (**always use this to pass data between functions**)
+- `ctx.prev.result` - Previous function's return value (**only in request handler, NOT in response handler**)
+- `ctx.result` - Raw data source response (**only in response handler**)
+
+⚠️ **Critical:** In a function's `response()`, `ctx.prev.result` is the raw data source result from the current function's request — NOT the previous function's return. Always use `ctx.stash` to pass objects between functions.
 
 ```javascript
 // pipeline-functions/src/insertActivity.js
